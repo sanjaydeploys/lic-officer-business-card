@@ -195,7 +195,7 @@
           associatedQuery: null
         });
         typeMessage(
-          'LIC की योजनाओं, प्रीमियम या दावों पर और प्रश्न? Jitendra Patidar (Development Officer @LIC India, Neemuch Branch, Mob: 7987235207) से संपर्क करें।',
+          'LIC की योजनाओं, प्रीमियम, या दावों के बारे में और कोई प्रश्न? अधिक जानकारी के लिए Jitendra Patidar (Development Officer @LIC India, Neemuch Branch) से संपर्क करें: 7987235207',
           followUpId,
           [
             'LIC की सबसे अच्छी योजना कौन सी है?',
@@ -250,7 +250,7 @@
     if (!text || typeof text !== 'string') return '';
     return text
       .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/[*_~`#\-=+:;<>\[\]\{\}\(\)]/g, '') // Remove markdown, special characters including < > etc.
+      .replace(/[*_~`#\-=+:;<>\[\]\{\}\(\)]/g, '') // Remove markdown and special characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
   }
@@ -294,41 +294,16 @@
   async function typeMessage(text, messageId, quickReplies = []) {
     const message = window.messages.find(m => m.id === messageId);
     if (!message) return;
-    const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
-    if (!messageDiv) return;
     let index = 0;
     const speed = 50;
-    const words = text.split(/\s+/);
-    let wordIndex = 0;
+    const chunkSize = 100;
+    let cleanedText = '';
+    typingIndicatorElement = document.createElement('div');
+    typingIndicatorElement.className = 'typing-indicator';
+    typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
 
-    function type() {
-      if (index < text.length) {
-        message.text = text.slice(0, index + 1);
-        messageDiv.innerHTML = formatMarkdown(message.text);
-        index++;
-        setTimeout(type, speed);
-      } else {
-        message.text = text;
-        messageDiv.innerHTML = formatMarkdown(message.text);
-        const cleanedText = cleanTextForSpeech(text);
-        if (isAutoSpeakEnabled && window.speakMessage && cleanedText.trim()) {
-          try {
-            window.speakMessage(messageId, cleanedText, currentLang);
-          } catch (e) {
-            console.error('Speech synthesis error:', e);
-          }
-        }
-        typingIndicatorElement = null;
-        if (quickReplies.length > 0) {
-          updateSuggestions(quickReplies);
-        }
-        localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-        renderMessages();
-      }
-    }
-
-    // Start speech in parallel
-    const cleanedText = cleanTextForSpeech(text);
+    // To sync audio with typing, start speaking the full cleaned text immediately
+    cleanedText = cleanTextForSpeech(text);
     if (isAutoSpeakEnabled && window.speakMessage && cleanedText.trim()) {
       try {
         window.speakMessage(messageId, cleanedText, currentLang);
@@ -337,6 +312,43 @@
       }
     }
 
+    // To prevent vibration, first render full text invisibly to get width
+    const tempDiv = document.createElement('div');
+    tempDiv.style.visibility = 'hidden';
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.maxWidth = '80%';
+    tempDiv.className = 'ai-message p-3 rounded-lg';
+    tempDiv.innerHTML = formatMarkdown(text);
+    document.body.appendChild(tempDiv);
+    const fixedWidth = tempDiv.offsetWidth + 'px';
+    document.body.removeChild(tempDiv);
+
+    // Set fixed width on the message bubble during typing
+    const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .ai-message`);
+    if (messageDiv) {
+      messageDiv.style.width = fixedWidth;
+    }
+
+    function type() {
+      if (index < text.length) {
+        message.text = text.slice(0, index + 1);
+        renderMessages();
+        index++;
+        setTimeout(type, speed);
+      } else {
+        message.text = text;
+        typingIndicatorElement = null;
+        if (quickReplies.length > 0) {
+          updateSuggestions(quickReplies);
+        }
+        // Remove fixed width after typing completes
+        if (messageDiv) {
+          messageDiv.style.width = '';
+        }
+        localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+        renderMessages();
+      }
+    }
     type();
   }
 
@@ -844,22 +856,11 @@
         } else if (target.classList.contains('edit-message-button')) {
           const input = messageDiv.querySelector('.edit-message-input');
           if (input.value.trim()) {
-            const newMessageId = Date.now();
-            window.messages = window.messages.filter(m => m.id != messageId);
-            window.messages.push({
-              sender: 'user',
-              text: input.value.trim(),
-              id: newMessageId,
-              timestamp: new Date().toISOString(),
-              category: categorizeMessage(input.value.trim()).category,
-              reactions: [],
-              isPinned: false,
-              associatedQuery: null
-            });
+            window.messages = window.messages.map(m => m.id === messageId ? { ...m, text: input.value.trim(), timestamp: new Date().toISOString(), category: categorizeMessage(input.value.trim()).category } : m);
             editingMessageId = null;
             localStorage.setItem('lic-chat', JSON.stringify(window.messages));
             renderMessages();
-            await showTonePicker(input.value.trim(), newMessageId);
+            await showTonePicker(input.value.trim(), messageId);
           }
         } else if (target.classList.contains('cancel-btn')) {
           editingMessageId = null;
