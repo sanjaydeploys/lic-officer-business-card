@@ -294,7 +294,7 @@
     if (!message) return;
     let index = 0;
     const speed = 50;
-    let cleanTextForSpeech = '';
+    let cleanedText = ''; // Renamed variable to avoid conflict with function name
     typingIndicatorElement = document.createElement('div');
     typingIndicatorElement.className = 'typing-indicator';
     typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
@@ -302,10 +302,10 @@
     function type() {
       if (index < text.length) {
         message.text = text.slice(0, index + 1);
-        cleanTextForSpeech = cleanTextForSpeech(text.slice(0, index + 1));
+        cleanedText = cleanTextForSpeech(text.slice(0, index + 1));
         if (isAutoSpeakEnabled && window.speakMessage && index === 0) {
           try {
-            window.speakMessage(messageId, cleanTextForSpeech, currentLang);
+            window.speakMessage(messageId, cleanedText, currentLang);
           } catch (e) {
             console.error('Speech synthesis error:', e);
           }
@@ -315,10 +315,10 @@
         setTimeout(type, speed);
       } else {
         message.text = text;
-        cleanTextForSpeech = cleanTextForSpeech(text);
+        cleanedText = cleanTextForSpeech(text);
         if (isAutoSpeakEnabled && window.speakMessage) {
           try {
-            window.speakMessage(messageId, cleanTextForSpeech, currentLang);
+            window.speakMessage(messageId, cleanedText, currentLang);
           } catch (e) {
             console.error('Speech synthesis error:', e);
           }
@@ -395,7 +395,7 @@
         if (showTimestamps) {
           const timeSpan = document.createElement('span');
           timeSpan.className = 'message-timestamp';
-          timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+          timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString('hi-IN', { bleach: true, hour: '2-digit', minute: '2-digit' });
           messageContent.appendChild(timeSpan);
         }
       }
