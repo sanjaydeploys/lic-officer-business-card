@@ -195,7 +195,7 @@
           associatedQuery: null
         });
         typeMessage(
-          'LIC की योजनाओं, प्रीमियम, या दावों के बारे में और कोई प्रश्न हैं?',
+          'LIC की योजनाओं, प्रीमियम, या दावों के बारे में और कोई प्रश्न हैं? अधिक जानकारी के लिए Jitendra Patidar (Development Officer @LIC India, Neemuch Branch) से संपर्क करें।',
           followUpId,
           [
             'LIC की सबसे अच्छी योजना कौन सी है?',
@@ -250,22 +250,30 @@
     if (!text || typeof text !== 'string') return '';
     return text
       .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/[*_~`#\-=+:;]/g, '') // Remove markdown and special characters
+      .replace(/[*_~`#\-=+:;<>\[\]\{\}\(\)]/g, '') // Remove markdown, special characters including < > etc.
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
   }
 
   function categorizeMessage(message) {
     if (!message) return { category: 'general', imageKey: null };
-    message = message.toLowerCase();
-    if (message.includes('योजना') || message.includes('पॉलिसी') || message.includes('plan')) {
-      return { category: 'policy', imageKey: 'policy' };
-    } else if (message.includes('प्रीमियम') || message.includes('premium') || message.includes('भुगतान')) {
-      return { category: 'premium', imageKey: 'premium' };
-    } else if (message.includes('दावा') || message.includes('claim')) {
-      return { category: 'claim', imageKey: 'claim' };
-    } else if (message.includes('संपर्क') || message.includes('contact') || message.includes('कस्टमर')) {
-      return { category: 'contact', imageKey: 'contact' };
+    const lowerMessage = message.toLowerCase();
+    if (lowerMessage.includes('जीवन आनंद') || lowerMessage.includes('jeevan anand')) {
+      return { category: 'policy', imageKey: 'jeevan-anand' };
+    } else if (lowerMessage.includes('न्यू जीवन') || lowerMessage.includes('new jeevan')) {
+      return { category: 'policy', imageKey: 'new-jeevan' };
+    } else if (lowerMessage.includes('धन वृद्धि') || lowerMessage.includes('dhan vriddhi')) {
+      return { category: 'policy', imageKey: 'dhan-vriddhi' };
+    } else if (lowerMessage.includes('अमृतबाल') || lowerMessage.includes('amritbal')) {
+      return { category: 'policy', imageKey: 'amritbal' };
+    } else if (lowerMessage.includes('योजना') || lowerMessage.includes('पॉलिसी') || lowerMessage.includes('plan')) {
+      return { category: 'policy', imageKey: null };
+    } else if (lowerMessage.includes('प्रीमियम') || lowerMessage.includes('premium') || lowerMessage.includes('भुगतान')) {
+      return { category: 'premium', imageKey: null };
+    } else if (lowerMessage.includes('दावा') || lowerMessage.includes('claim')) {
+      return { category: 'claim', imageKey: null };
+    } else if (lowerMessage.includes('संपर्क') || lowerMessage.includes('contact') || lowerMessage.includes('कस्टमर')) {
+      return { category: 'contact', imageKey: null };
     } else {
       return { category: 'general', imageKey: null };
     }
@@ -298,13 +306,7 @@
       if (index < text.length) {
         message.text = text.slice(0, index + 1);
         cleanedText = cleanTextForSpeech(text.slice(0, index + 1));
-        if (isAutoSpeakEnabled && window.speakMessage && index % chunkSize === 0 && cleanedText.trim()) {
-          try {
-            window.speakMessage(messageId, cleanedText, currentLang);
-          } catch (e) {
-            console.error('Speech synthesis error:', e);
-          }
-        }
+        // Removed intermediate speech calls during typing to prevent stopping/starting issues
         renderMessages();
         index++;
         setTimeout(type, speed);
