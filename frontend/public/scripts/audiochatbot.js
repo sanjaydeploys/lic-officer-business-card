@@ -21,9 +21,10 @@
   }
 
   function cleanTextForSpeech(text) {
+    if (!text || typeof text !== 'string') return '';
     return text
       .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/[*_~`#]/g, '') // Remove markdown special characters
+      .replace(/[*_~`#\-=+:;]/g, '') // Remove markdown and special characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
   }
@@ -289,7 +290,7 @@
         speakBtn.innerHTML = isSpeaking
           ? `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
           : `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z"></path></svg>`;
-        speakBtn.setAttribute('aria-label', isSpeaking ? 'Pause message' : 'Play message');
+        speakBtn.setAttribute('aria-label', isSpeaking ? 'Pause message' : 'Speak message');
       }
       const message = window.messages.find(m => m.id === messageId);
       if (message) {
