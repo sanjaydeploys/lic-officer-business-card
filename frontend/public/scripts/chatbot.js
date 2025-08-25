@@ -195,7 +195,7 @@
           associatedQuery: null
         });
         typeMessage(
-          'LIC की योजनाओं, प्रीमियम, या दावों के बारे में और कोई प्रश्न हैं? अधिक जानकारी के लिए Jitendra Patidar (Development Officer @LIC India, Neemuch Branch) से संपर्क करें।',
+          'LIC की योजनाओं, प्रीमियम या दावों पर और प्रश्न? Jitendra Patidar (Development Officer @LIC India, Neemuch Branch, Mob: 7987235207) से संपर्क करें।',
           followUpId,
           [
             'LIC की सबसे अच्छी योजना कौन सी है?',
@@ -294,25 +294,23 @@
   async function typeMessage(text, messageId, quickReplies = []) {
     const message = window.messages.find(m => m.id === messageId);
     if (!message) return;
+    const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
+    if (!messageDiv) return;
     let index = 0;
     const speed = 50;
-    const chunkSize = 100; // Characters per speech chunk
-    let cleanedText = '';
-    typingIndicatorElement = document.createElement('div');
-    typingIndicatorElement.className = 'typing-indicator';
-    typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
+    const words = text.split(/\s+/);
+    let wordIndex = 0;
 
     function type() {
       if (index < text.length) {
         message.text = text.slice(0, index + 1);
-        cleanedText = cleanTextForSpeech(text.slice(0, index + 1));
-        // Removed intermediate speech calls during typing to prevent stopping/starting issues
-        renderMessages();
+        messageDiv.innerHTML = formatMarkdown(message.text);
         index++;
         setTimeout(type, speed);
       } else {
         message.text = text;
-        cleanedText = cleanTextForSpeech(text);
+        messageDiv.innerHTML = formatMarkdown(message.text);
+        const cleanedText = cleanTextForSpeech(text);
         if (isAutoSpeakEnabled && window.speakMessage && cleanedText.trim()) {
           try {
             window.speakMessage(messageId, cleanedText, currentLang);
@@ -328,6 +326,17 @@
         renderMessages();
       }
     }
+
+    // Start speech in parallel
+    const cleanedText = cleanTextForSpeech(text);
+    if (isAutoSpeakEnabled && window.speakMessage && cleanedText.trim()) {
+      try {
+        window.speakMessage(messageId, cleanedText, currentLang);
+      } catch (e) {
+        console.error('Speech synthesis error:', e);
+      }
+    }
+
     type();
   }
 
