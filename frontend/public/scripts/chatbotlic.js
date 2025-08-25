@@ -3,7 +3,7 @@
   let currentLang = 'hi';
   localStorage.setItem('chat-lang', currentLang);
 
-  // Initialize messages
+  // Now initialize messages, using currentLang for default welcome text
   window.messages = JSON.parse(localStorage.getItem('lic-chat')) || [
     {
       sender: 'ai',
@@ -16,7 +16,7 @@
     }
   ];
 
-  // Validate and reset messages if corrupted
+  // Validate and reset messages if corrupted, using currentLang for welcome
   try {
     if (!Array.isArray(window.messages)) {
       console.warn('Invalid localStorage data, resetting messages');
@@ -46,7 +46,7 @@
   }
 
   let isLoading = false;
-  let isDarkMode = true; // Default to dark mode for WhatsApp UI
+  let isDarkMode = false;
   let isHistoryCollapsed = false;
   let fontSize = parseInt(localStorage.getItem('chat-font-size')) || 14;
   let editingMessageId = null;
@@ -57,6 +57,9 @@
   let showTimestamps = true;
   let searchQuery = '';
   let selectedCategory = '';
+  let pendingMessage = null;
+  let pendingMessageId = null;
+  let isPinnedWindowOpen = false;
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
   const suggestedPrompts = {
     hi: [
@@ -69,11 +72,21 @@
       'LIC में कितने प्रकार की योजनाएं हैं?',
       'LIC पॉलिसी का रजिस्ट्रेशन कैसे करें?',
       'LIC में ऑनलाइन पेमेंट कैसे करें?',
-      'LIC की टर्म इंश्योरेंस योजना क्या है?'
+      'LIC की टर्म इंश्योरेंस योजना क्या है?',
+      'LIC की पेंशन योजनाएं क्या हैं?',
+      'LIC में मेच्योरिटी अमाउंट कैसे चेक करें?',
+      'LIC एजेंट कैसे बनें?',
+      'LIC की यूलिप योजनाएं क्या हैं?',
+      'LIC में लोन कैसे लें?',
+      'LIC पॉलिसी को सरेंडर कैसे करें?',
+      'LIC में नॉमिनी कैसे बदलें?',
+      'LIC की चाइल्ड प्लान क्या हैं?',
+      'LIC की हेल्थ इंश्योरेंस योजनाएं क्या हैं?',
+      'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
     ]
   };
   let filteredSuggestions = suggestedPrompts[currentLang];
-  const emojiOptions = ['👍', '😄', '👏'];
+  const emojiOptions = ['👍', '😄', '⚽', '🍲', '👏'];
   const primaryApiKey = 'AIzaSyA6R5mEyZM7Vz61fisMnFaYedGptHv8B4I';
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
@@ -97,9 +110,10 @@
     interactionAnalytics.categories[category] = (interactionAnalytics.categories[category] || 0) + 1;
 
     let aiResponse;
+    let projectDetails = null;
     let quickReplies = [];
     const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. Structure responses with bullet points for lists or comparisons. Ensure answers are culturally sensitive and family-friendly.';
-    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi.`;
+    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi.`;
 
     async function tryApiRequest(apiKey) {
       try {
@@ -144,7 +158,6 @@
     }
 
     const responseId = Date.now();
-    const imageContext = getImageContext();
     const imageData = imageKey && imageContext[imageKey]
       ? imageContext[imageKey].urls[Math.floor(Math.random() * imageContext[imageKey].urls.length)]
       : null;
@@ -153,13 +166,13 @@
       text: '',
       id: responseId,
       timestamp: new Date().toISOString(),
-      category: category,
+      category: projectDetails ? 'project' : category,
       reactions: [],
       isPinned: false,
       imageUrl: imageData?.url,
       imageAlt: imageData?.alt
     });
-    await typeMessage(aiResponse, responseId, null, quickReplies);
+    await typeMessage(aiResponse, responseId, projectDetails, quickReplies);
 
     if (isAutoReplyEnabled) {
       setTimeout(function() {
@@ -204,12 +217,13 @@
       : window.messages;
 
     if (filteredMessages.length === 0) {
+      console.warn('No messages to render');
       chatMessages.innerHTML = '<div class="no-messages">कोई संदेश नहीं मिला</div>';
     }
 
     filteredMessages.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
+      if (!b.isPinned && b.isPinned) return 1;
       return new Date(a.timestamp) - new Date(b.timestamp);
     });
 
@@ -219,7 +233,7 @@
       messageDiv.className = `message-container flex mb-2 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`;
       messageDiv.dataset.messageId = message.id;
       const bubbleDiv = document.createElement('div');
-      bubbleDiv.className = `relative max-w-[80%] p-3 rounded-lg ${message.sender === 'user' ? 'user-message' : 'ai-message'} ${message.isPinned ? 'border-2 border-[#25D366]' : ''}`;
+      bubbleDiv.className = `relative max-w-[80%] p-3 rounded-lg ${message.sender === 'user' ? 'user-message' : 'ai-message'} ${message.isPinned ? 'border-2 border-yellow-500' : ''}`;
       const messageContent = document.createElement('div');
       messageContent.className = 'message-content';
       messageContent.style.fontSize = `${fontSize}px`;
@@ -227,7 +241,7 @@
       if (editingMessageId === message.id) {
         messageContent.innerHTML =
           '<div class="edit-message flex items-center gap-2">' +
-            '<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#E5DDD5] dark:bg-[#1F2A44] text-[#111B21] dark:text-[#E6E6FA]" value="' + editedText.replace(/"/g, '&quot;') + '">' +
+            '<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="' + editedText.replace(/"/g, '&quot;') + '">' +
             '<button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
             '<button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
           '</div>';
@@ -243,7 +257,7 @@
           messageContent.appendChild(timeSpan);
         }
         if (message.reactions.length > 0) {
-          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + message.reactions.map(r => `<span class="reaction-tag bg-[#E5DDD5] dark:bg-[#1F2A44] rounded-full px-2 py-1 text-sm">${r}</span>`).join('') + '</div>';
+          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + message.reactions.map(r => `<span class="reaction-tag bg-[#F5F5F5] dark:bg-[#2A3942] rounded-full px-2 py-1 text-sm">${r}</span>`).join('') + '</div>';
         }
       }
       if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function') {
@@ -260,25 +274,25 @@
       messageActions.className = 'message-actions flex justify-end gap-2 mt-2';
       if (message.sender === 'user') {
         const editBtn = document.createElement('button');
-        editBtn.className = 'action-btn bg-[#E5DDD5] dark:bg-[#1F2A44] p-2 rounded-full';
+        editBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
         editBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
         editBtn.addEventListener('click', function() { startEditing(message.id, message.text); });
         messageActions.appendChild(editBtn);
       }
       const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'action-btn bg-[#E5DDD5] dark:bg-[#1F2A44] p-2 rounded-full';
+      deleteBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
       deleteBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4"></path></svg>';
       deleteBtn.addEventListener('click', function() { deleteMessage(message.id); });
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'action-btn bg-[#E5DDD5] dark:bg-[#1F2A44] p-2 rounded-full';
+      copyBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
       copyBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
       copyBtn.addEventListener('click', function() { copyMessage(message.text); });
       const pinBtn = document.createElement('button');
-      pinBtn.className = 'action-btn bg-[#E5DDD5] dark:bg-[#1F2A44] p-2 rounded-full';
+      pinBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg[#2A3942] p-2 rounded-full';
       pinBtn.innerHTML = message.isPinned ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
       pinBtn.addEventListener('click', function() { togglePinMessage(message.id); });
       const reactionBtn = document.createElement('button');
-      reactionBtn.className = 'action-btn bg-[#E5DDD5] dark:bg-[#1F2A44] p-2 rounded-full';
+      reactionBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg[#2A3942] p-2 rounded-full';
       reactionBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
       reactionBtn.addEventListener('click', function() { showReactionPicker(message.id, bubbleDiv); });
       messageActions.appendChild(deleteBtn);
@@ -306,14 +320,15 @@
     updateTimestamps();
     updateButtonStates();
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+    console.log('Messages rendered:', window.messages.length);
   }
 
   function formatMarkdown(text) {
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-[#E5DDD5] dark:bg-[#1F2A44] p-1 rounded">$1</code>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-[#128C7E] underline">$1</a>')
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-[#2A3942] p-1 rounded">$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-blue-500 underline">$1</a>')
       .replace(/^- (.*)$/gm, '<li>$1</li>')
       .replace(/(\n<li>.*<\/li>)+/g, '<ul class="list-disc pl-5">$&</ul>')
       .replace(/\n/g, '<br>');
@@ -372,7 +387,7 @@
 
   async function performWebSearch(query) {
     const lowerQuery = query.toLowerCase();
-    if (lowerQuery.includes('lic') || lowerQuery.includes('एलआईसी')) {
+    if (lowerQuery.includes('lic') || lowerMessage.includes('एलआईसी')) {
       return `LIC इंडिया भारत की सबसे बड़ी बीमा कंपनी है। अधिक जानकारी के लिए [LIC वेबसाइट](https://www.licindia.in) देखें।`;
     }
     return `"${query}" पर सामान्य जानकारी: अधिक संदर्भ प्रदान करें या LIC की योजनाओं, प्रीमियम, या दावों के लिए पूछें।`;
@@ -380,20 +395,23 @@
 
   function categorizeMessage(message) {
     const lowerMessage = message.toLowerCase();
-    const imageContext = getImageContext();
     for (const [imageKey, { keywords }] of Object.entries(imageContext)) {
       if (keywords.some(keyword => lowerMessage.includes(keyword))) {
-        return { category: 'plans', imageKey };
+        return { category: 'personal', imageKey };
       }
     }
-    if (lowerMessage.includes('प्रीमियम') || lowerMessage.includes('premium') || lowerMessage.includes('payment') || lowerMessage.includes('भुगतान')) {
-      return { category: 'premium' };
-    } else if (lowerMessage.includes('दावा') || lowerMessage.includes('claim') || lowerMessage.includes('maturity') || lowerMessage.includes('परिपक्वता')) {
-      return { category: 'claims' };
-    } else if (lowerMessage.includes('संपर्क') || lowerMessage.includes('contact') || lowerMessage.includes('customer care') || lowerMessage.includes('कस्टमर केयर')) {
+    if (lowerMessage.includes('project') || lowerMessage.includes('lic neemuch') || lowerMessage.includes('zedemy') || lowerMessage.includes('connectnow') || lowerMessage.includes('eventease') || lowerMessage.includes('eduxcel') || lowerMessage.includes('प्रोजेक्ट') || lowerMessage.includes('lic नीमच') || lowerMessage.includes('जेडेमी') || lowerMessage.includes('कनेक्टनाउ') || lowerMessage.includes('इवेंटईज') || lowerMessage.includes('एडुक्सेल')) {
+      return { category: 'project' };
+    } else if (lowerMessage.includes('skill') || lowerMessage.includes('frontend') || lowerMessage.includes('backend') || lowerMessage.includes('cloud') || lowerMessage.includes('seo') || lowerMessage.includes('ci/cd') || lowerMessage.includes('security') || lowerMessage.includes('स्किल') || lowerMessage.includes('फ्रंटएंड') || lowerMessage.includes('बैकएंड') || lowerMessage.includes('क्लाउड') || lowerMessage.includes('एसईओ') || lowerMessage.includes('सीआई/सीडी') || lowerMessage.includes('सुरक्षा')) {
+      return { category: 'skills' };
+    } else if (lowerMessage.includes('achievement') || lowerMessage.includes('load time') || lowerMessage.includes('impression') || lowerMessage.includes('उपलब्धि') || lowerMessage.includes('लोड टाइम') || lowerMessage.includes('इंप्रेशन')) {
+      return { category: 'achievements' };
+    } else if (lowerMessage.includes('contact') || lowerMessage.includes('collaboration') || lowerMessage.includes('संपर्क') || lowerMessage.includes('सहयोग')) {
       return { category: 'contact' };
-    } else if (lowerMessage.includes('एजेंट') || lowerMessage.includes('agent') || lowerMessage.includes('loan') || lowerMessage.includes('लोन') || lowerMessage.includes('nominee') || lowerMessage.includes('नॉमिनी')) {
-      return { category: 'services' };
+    } else if (lowerMessage.includes('challenge') || lowerMessage.includes('deadline') || lowerMessage.includes('setback') || lowerMessage.includes('conflict') || lowerMessage.includes('learn') || lowerMessage.includes('चुनौती') || lowerMessage.includes('डेडलाइन') || lowerMessage.includes('असफलता') || lowerMessage.includes('संघर्ष') || lowerMessage.includes('सीखना')) {
+      return { category: 'challenges' };
+    } else if (lowerMessage.includes('who is sanjay') || lowerMessage.includes('संजय कौन') || lowerMessage.includes('life') || lowerMessage.includes('story') || lowerMessage.includes('school') || lowerMessage.includes('navodaya') || lowerMessage.includes('hobby') || lowerMessage.includes('जीवन') || lowerMessage.includes('कहानी') || lowerMessage.includes('स्कूल') || lowerMessage.includes('नवोदय') || lowerMessage.includes('शौक')) {
+      return { category: 'personal' };
     } else {
       return { category: 'general' };
     }
@@ -445,7 +463,7 @@
       return;
     }
     const picker = document.createElement('div');
-    picker.className = 'reaction-picker absolute bg-[#E5DDD5] dark:bg-[#1F2A44] border border-[#128C7E] rounded-lg p-2 flex gap-2 z-10';
+    picker.className = 'reaction-picker absolute bg-white dark:bg-[#2A3942] border rounded-lg p-2 flex gap-2 z-10';
     emojiOptions.forEach(emoji => {
       const btn = document.createElement('button');
       btn.textContent = emoji;
@@ -636,6 +654,7 @@
     elements.forEach(function(element) {
       element.style.setProperty('font-size', `${fontSize}px`, 'important');
     });
+    console.log(`Font size adjusted to ${fontSize}px, affected ${elements.length} elements`);
   }
 
   function confirmClearChat() {
