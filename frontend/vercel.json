@@ -18,6 +18,10 @@
       "src": "/services",
       "dest": "https://z6hr0bza57.execute-api.ap-south-1.amazonaws.com/prod/services"
     },
+        {
+      "src": "/chatbot",
+      "dest": "https://z6hr0bza57.execute-api.ap-south-1.amazonaws.com/prod/chatbot"
+    },
      {
       "src": "/policies/jeevan-anand",
       "dest": "https://z6hr0bza57.execute-api.ap-south-1.amazonaws.com/prod/policies/jeevan-anand"
