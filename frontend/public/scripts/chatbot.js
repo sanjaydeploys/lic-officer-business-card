@@ -93,18 +93,13 @@
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
 
-  // Load LIC context from external files
+  // Load LIC context from single file
   function getContext() {
-    const baseContext = window.licContext?.hindiContext || 'LIC India base context not available';
-    const latestContext = window.licLatestContext?.latestHindiContext || '';
-    return `${baseContext}\n\nLatest Updates: ${latestContext}`;
+    return window.licContext?.hindiContext || 'LIC India context not available';
   }
 
   function getImageContext() {
-    return {
-      ...window.licContext?.imageContext || {},
-      ...window.licLatestContext?.latestImageContext || {}
-    };
+    return window.licContext?.imageContext || {};
   }
 
   function showTonePicker(message, messageId) {
@@ -122,7 +117,7 @@
     let aiResponse;
     let quickReplies = [];
     const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. For lists or comparisons (e.g., policy details, benefits), structure responses as bullet points with each item on a new line for clarity. Ensure answers are culturally sensitive and family-friendly.';
-    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. Combine information from both base context and latest updates, prioritizing the latest updates where applicable. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
+    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services, combining all available information. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
 
     async function tryApiRequest(apiKey) {
       try {
@@ -252,9 +247,10 @@
   }
 
   function cleanTextForSpeech(text) {
+    if (!text || typeof text !== 'string') return '';
     return text
       .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/[*_~`#\-]/g, '') // Remove markdown and special characters
+      .replace(/[*_~`#\-=+:;]/g, '') // Remove markdown and special characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
   }
@@ -302,7 +298,7 @@
       if (index < text.length) {
         message.text = text.slice(0, index + 1);
         cleanedText = cleanTextForSpeech(text.slice(0, index + 1));
-        if (isAutoSpeakEnabled && window.speakMessage && index % chunkSize === 0) {
+        if (isAutoSpeakEnabled && window.speakMessage && index % chunkSize === 0 && cleanedText.trim()) {
           try {
             window.speakMessage(messageId, cleanedText, currentLang);
           } catch (e) {
@@ -315,7 +311,7 @@
       } else {
         message.text = text;
         cleanedText = cleanTextForSpeech(text);
-        if (isAutoSpeakEnabled && window.speakMessage) {
+        if (isAutoSpeakEnabled && window.speakMessage && cleanedText.trim()) {
           try {
             window.speakMessage(messageId, cleanedText, currentLang);
           } catch (e) {
@@ -728,8 +724,8 @@
 
     if (volumeControl) {
       volumeControl.addEventListener('input', () => {
-        if (window.setVolume) {
-          window.setVolume(volumeControl.value);
+        if (window.setSpeechVolume) {
+          window.setSpeechVolume(volumeControl.value);
           localStorage.setItem('chat-volume', volumeControl.value);
         }
       });
@@ -827,7 +823,7 @@
           target.parentElement.appendChild(picker);
         } else if (target.classList.contains('speak-btn')) {
           const cleanText = cleanTextForSpeech(message.text);
-          if (window.speakMessage) {
+          if (window.speakMessage && cleanText.trim()) {
             try {
               window.speakMessage(message.id, cleanText, currentLang);
             } catch (e) {
@@ -874,7 +870,7 @@
     chatbotContainer.classList.toggle('dark', isDarkMode);
     if (volumeControl) {
       volumeControl.value = localStorage.getItem('chat-volume') || 1;
-      if (window.setVolume) window.setVolume(volumeControl.value);
+      if (window.setSpeechVolume) window.setSpeechVolume(volumeControl.value);
     }
   });
 })();
