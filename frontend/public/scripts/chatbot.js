@@ -95,11 +95,9 @@
 
   // Load LIC context from external files
   function getContext() {
-    return window.licContext?.hindiContext || 'LIC India context not available';
-  }
-
-  function getLatestContext() {
-    return window.licLatestContext?.latestHindiContext || '';
+    const baseContext = window.licContext?.hindiContext || 'LIC India base context not available';
+    const latestContext = window.licLatestContext?.latestHindiContext || '';
+    return `${baseContext}\n\nLatest Updates: ${latestContext}`;
   }
 
   function getImageContext() {
@@ -124,7 +122,7 @@
     let aiResponse;
     let quickReplies = [];
     const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. For lists or comparisons (e.g., policy details, benefits), structure responses as bullet points with each item on a new line for clarity. Ensure answers are culturally sensitive and family-friendly.';
-    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. Combine information from both base context and latest updates, prioritizing the latest updates where applicable. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Base Context: ${getContext()}\n\nLatest Updates: ${getLatestContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
+    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. Combine information from both base context and latest updates, prioritizing the latest updates where applicable. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
 
     async function tryApiRequest(apiKey) {
       try {
@@ -256,7 +254,7 @@
   function cleanTextForSpeech(text) {
     return text
       .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/[*_~`#]/g, '') // Remove markdown special characters
+      .replace(/[*_~`#\-]/g, '') // Remove markdown and special characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
   }
@@ -294,7 +292,8 @@
     if (!message) return;
     let index = 0;
     const speed = 50;
-    let cleanedText = ''; // Renamed variable to avoid conflict with function name
+    const chunkSize = 100; // Characters per speech chunk
+    let cleanedText = '';
     typingIndicatorElement = document.createElement('div');
     typingIndicatorElement.className = 'typing-indicator';
     typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
@@ -303,7 +302,7 @@
       if (index < text.length) {
         message.text = text.slice(0, index + 1);
         cleanedText = cleanTextForSpeech(text.slice(0, index + 1));
-        if (isAutoSpeakEnabled && window.speakMessage && index === 0) {
+        if (isAutoSpeakEnabled && window.speakMessage && index % chunkSize === 0) {
           try {
             window.speakMessage(messageId, cleanedText, currentLang);
           } catch (e) {
@@ -395,7 +394,7 @@
         if (showTimestamps) {
           const timeSpan = document.createElement('span');
           timeSpan.className = 'message-timestamp';
-          timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString('hi-IN', { bleach: true, hour: '2-digit', minute: '2-digit' });
+          timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
           messageContent.appendChild(timeSpan);
         }
       }
@@ -427,9 +426,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
         </button>
-        <button class="action-btn speak-btn" aria-label="Speak message">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15z"></path>
+        <button class="action-btn speak-btn" aria-label="${message.isSpeaking ? 'Pause message' : 'Speak message'}">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${message.isSpeaking ? 'M10 9v6m4-6v6' : 'M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z'}"></path>
           </svg>
         </button>
       `;
@@ -783,7 +782,7 @@
 
         if (target.classList.contains('edit-btn')) {
           editingMessageId = messageId;
-          editedText = message.text.replace(/<[^>]+>/g, '');
+          editedText = cleanTextForSpeech(message.text);
           renderMessages();
         } else if (target.classList.contains('delete-btn')) {
           const popup = document.createElement('div');
