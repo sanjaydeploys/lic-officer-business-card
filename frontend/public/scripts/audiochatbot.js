@@ -24,7 +24,7 @@
     if (!text || typeof text !== 'string') return '';
     return text
       .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/[*_~`#\-=+:;]/g, '') // Remove markdown and special characters
+      .replace(/[*_~`#\-=+:;<>\[\]\{\}\(\)]/g, '') // Remove markdown, special characters including < > etc.
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
   }
