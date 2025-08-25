@@ -93,14 +93,20 @@
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
 
-  // Load LIC context from external file
+  // Load LIC context from external files
   function getContext() {
     return window.licContext?.hindiContext || 'LIC India context not available';
   }
 
-  // Load LIC image context
+  function getLatestContext() {
+    return window.licLatestContext?.latestHindiContext || '';
+  }
+
   function getImageContext() {
-    return window.licContext?.imageContext || {};
+    return {
+      ...window.licContext?.imageContext || {},
+      ...window.licLatestContext?.latestImageContext || {}
+    };
   }
 
   function showTonePicker(message, messageId) {
@@ -118,7 +124,7 @@
     let aiResponse;
     let quickReplies = [];
     const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. For lists or comparisons (e.g., policy details, benefits), structure responses as bullet points with each item on a new line for clarity. Ensure answers are culturally sensitive and family-friendly.';
-    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
+    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. Combine information from both base context and latest updates, prioritizing the latest updates where applicable. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Base Context: ${getContext()}\n\nLatest Updates: ${getLatestContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
 
     async function tryApiRequest(apiKey) {
       try {
@@ -165,7 +171,7 @@
 
     const responseId = Date.now();
     const imageContext = getImageContext();
-    const imageData = imageKey && imageContext[imageKey]
+    const imageData = imageKey && imageContext[imageKey] && isImageRelevant(message, imageContext[imageKey].keywords)
       ? imageContext[imageKey].urls[Math.floor(Math.random() * imageContext[imageKey].urls.length)]
       : null;
     window.messages.push({
@@ -211,9 +217,13 @@
     renderMessages();
   }
 
+  function isImageRelevant(message, keywords) {
+    const lowerMessage = message.toLowerCase();
+    return keywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
+  }
+
   function formatResponse(text) {
     if (!text) return '<p>कोई जानकारी उपलब्ध नहीं।</p>';
-    // Enhanced list detection for bullet points
     const listRegex = /^([-*] .+)$/gm;
     let formattedText = text;
     if (listRegex.test(text)) {
@@ -241,6 +251,14 @@
     text = text.replace(/^- (.*?)$/gm, '<li>$1</li>');
     text = text.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
     return text;
+  }
+
+  function cleanTextForSpeech(text) {
+    return text
+      .replace(/<[^>]+>/g, '') // Remove HTML tags
+      .replace(/[*_~`#]/g, '') // Remove markdown special characters
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
   }
 
   function categorizeMessage(message) {
@@ -276,6 +294,7 @@
     if (!message) return;
     let index = 0;
     const speed = 50;
+    let cleanTextForSpeech = '';
     typingIndicatorElement = document.createElement('div');
     typingIndicatorElement.className = 'typing-indicator';
     typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
@@ -283,25 +302,33 @@
     function type() {
       if (index < text.length) {
         message.text = text.slice(0, index + 1);
+        cleanTextForSpeech = cleanTextForSpeech(text.slice(0, index + 1));
+        if (isAutoSpeakEnabled && window.speakMessage && index === 0) {
+          try {
+            window.speakMessage(messageId, cleanTextForSpeech, currentLang);
+          } catch (e) {
+            console.error('Speech synthesis error:', e);
+          }
+        }
         renderMessages();
         index++;
         setTimeout(type, speed);
       } else {
         message.text = text;
+        cleanTextForSpeech = cleanTextForSpeech(text);
+        if (isAutoSpeakEnabled && window.speakMessage) {
+          try {
+            window.speakMessage(messageId, cleanTextForSpeech, currentLang);
+          } catch (e) {
+            console.error('Speech synthesis error:', e);
+          }
+        }
         typingIndicatorElement = null;
         if (quickReplies.length > 0) {
           updateSuggestions(quickReplies);
         }
         localStorage.setItem('lic-chat', JSON.stringify(window.messages));
         renderMessages();
-        if (isAutoSpeakEnabled && window.speakMessage) {
-          const cleanText = message.text.replace(/<[^>]+>/g, '').replace(/[*_~`]/g, '');
-          try {
-            window.speakMessage(messageId, cleanText, currentLang);
-          } catch (e) {
-            console.error('Speech synthesis error:', e);
-          }
-        }
       }
     }
     type();
@@ -746,7 +773,7 @@
     }
 
     if (chatMessages) {
-      chatMessages.addEventListener('click', e => {
+      chatMessages.addEventListener('click', async e => {
         const target = e.target.closest('.action-btn, .edit-message-button, .cancel-btn');
         if (!target) return;
         const messageDiv = target.closest('.message-container');
@@ -800,7 +827,7 @@
           });
           target.parentElement.appendChild(picker);
         } else if (target.classList.contains('speak-btn')) {
-          const cleanText = message.text.replace(/<[^>]+>/g, '').replace(/[*_~`]/g, '');
+          const cleanText = cleanTextForSpeech(message.text);
           if (window.speakMessage) {
             try {
               window.speakMessage(message.id, cleanText, currentLang);
@@ -811,11 +838,22 @@
         } else if (target.classList.contains('edit-message-button')) {
           const input = messageDiv.querySelector('.edit-message-input');
           if (input.value.trim()) {
-            message.text = input.value.trim();
-            message.timestamp = new Date().toISOString();
+            const newMessageId = Date.now();
+            window.messages = window.messages.filter(m => m.id != messageId);
+            window.messages.push({
+              sender: 'user',
+              text: input.value.trim(),
+              id: newMessageId,
+              timestamp: new Date().toISOString(),
+              category: categorizeMessage(input.value.trim()).category,
+              reactions: [],
+              isPinned: false,
+              associatedQuery: null
+            });
             editingMessageId = null;
             localStorage.setItem('lic-chat', JSON.stringify(window.messages));
             renderMessages();
+            await showTonePicker(input.value.trim(), newMessageId);
           }
         } else if (target.classList.contains('cancel-btn')) {
           editingMessageId = null;
