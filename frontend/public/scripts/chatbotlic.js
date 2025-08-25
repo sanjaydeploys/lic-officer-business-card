@@ -69,21 +69,11 @@
       'LIC में कितने प्रकार की योजनाएं हैं?',
       'LIC पॉलिसी का रजिस्ट्रेशन कैसे करें?',
       'LIC में ऑनलाइन पेमेंट कैसे करें?',
-      'LIC की टर्म इंश्योरेंस योजना क्या है?',
-      'LIC की पेंशन योजनाएं क्या हैं?',
-      'LIC में मेच्योरिटी अमाउंट कैसे चेक करें?',
-      'LIC एजेंट कैसे बनें?',
-      'LIC की यूलिप योजनाएं क्या हैं?',
-      'LIC में लोन कैसे लें?',
-      'LIC पॉलिसी को सरेंडर कैसे करें?',
-      'LIC में नॉमिनी कैसे बदलें?',
-      'LIC की चाइल्ड प्लान क्या हैं?',
-      'LIC की हेल्थ इंश्योरेंस योजनाएं क्या हैं?',
-      'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
+      'LIC की टर्म इंश्योरेंस योजना क्या है?'
     ]
   };
   let filteredSuggestions = suggestedPrompts[currentLang];
-  const emojiOptions = ['👍', '😄', '⚽', '🍲', '👏'];
+  const emojiOptions = ['👍', '😄', '👏'];
   const primaryApiKey = 'AIzaSyA6R5mEyZM7Vz61fisMnFaYedGptHv8B4I';
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
@@ -108,8 +98,8 @@
 
     let aiResponse;
     let quickReplies = [];
-    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. Structure responses with bullet points for lists. Ensure answers are culturally sensitive and family-friendly.';
-    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi.`;
+    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. Structure responses with bullet points for lists or comparisons. Ensure answers are culturally sensitive and family-friendly.';
+    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi.`;
 
     async function tryApiRequest(apiKey) {
       try {
