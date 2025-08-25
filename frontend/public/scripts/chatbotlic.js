@@ -60,10 +60,9 @@
   let showTimestamps = true;
   let searchQuery = '';
   let selectedCategory = '';
-  let pendingMessage = null;
-  let pendingMessageId = null;
   let isPinnedWindowOpen = false;
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
+  let typingIndicatorElement = null;
   const suggestedPrompts = {
     hi: [
       'LIC जीवन आनंद योजना क्या है?',
@@ -118,8 +117,8 @@
 
     let aiResponse;
     let quickReplies = [];
-    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. Structure responses in a list format when providing lists or comparisons (e.g., policy details, benefits). Ensure answers are culturally sensitive and family-friendly.';
-    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi.`;
+    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. For lists or comparisons (e.g., policy details, benefits), structure responses as bullet points with each item on a new line for clarity. Ensure answers are culturally sensitive and family-friendly.';
+    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
 
     async function tryApiRequest(apiKey) {
       try {
@@ -214,31 +213,25 @@
 
   function formatResponse(text) {
     if (!text) return '<p>कोई जानकारी उपलब्ध नहीं।</p>';
-    // Convert lists to HTML unordered lists instead of tables
-    const listRegex = /(- .+\n)+/g;
+    // Enhanced list detection for bullet points
+    const listRegex = /^([-*] .+)$/gm;
+    let formattedText = text;
     if (listRegex.test(text)) {
+      formattedText = '<ul>';
       const lines = text.split('\n').filter(line => line.trim());
-      let listContent = '';
-      let inList = false;
       lines.forEach(line => {
-        if (line.startsWith('- ')) {
-          if (!inList) {
-            listContent += '<ul>';
-            inList = true;
-          }
-          listContent += `<li>${line.replace('- ', '').trim()}</li>`;
+        if (line.match(/^- .+$/) || line.match(/^\* .+$/)) {
+          formattedText += `<li>${line.replace(/[-*] /, '').trim()}</li>`;
         } else {
-          if (inList) {
-            listContent += '</ul>';
-            inList = false;
-          }
-          listContent += `<p>${line.trim()}</p>`;
+          formattedText += `</ul><p>${line.trim()}</p><ul>`;
         }
       });
-      if (inList) listContent += '</ul>';
-      return listContent;
+      formattedText = formattedText.replace(/<ul>\s*<\/ul>/g, '');
+      if (!formattedText.endsWith('</ul>')) formattedText += '</ul>';
+    } else {
+      formattedText = `<p>${text}</p>`;
     }
-    return `<p>${text}</p>`;
+    return formattedText;
   }
 
   function formatMarkdown(text) {
@@ -271,19 +264,21 @@
     return null; // Placeholder for actual search implementation
   }
 
+  function scrollToBottom() {
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  }
+
   async function typeMessage(text, messageId, quickReplies = []) {
     const message = window.messages.find(m => m.id === messageId);
     if (!message) return;
     let index = 0;
     const speed = 50;
-    const typingIndicator = document.createElement('div');
-    typingIndicator.className = 'typing-indicator';
-    typingIndicator.innerHTML = '<span></span><span></span><span></span>';
-    const chatMessages = document.getElementById('chat-messages');
-    if (chatMessages) {
-      chatMessages.appendChild(typingIndicator);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
+    typingIndicatorElement = document.createElement('div');
+    typingIndicatorElement.className = 'typing-indicator';
+    typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
 
     function type() {
       if (index < text.length) {
@@ -292,10 +287,8 @@
         index++;
         setTimeout(type, speed);
       } else {
-        if (typingIndicator && typingIndicator.parentNode) {
-          typingIndicator.remove();
-        }
         message.text = text;
+        typingIndicatorElement = null;
         if (quickReplies.length > 0) {
           updateSuggestions(quickReplies);
         }
@@ -335,6 +328,7 @@
 
     if (filteredMessages.length === 0) {
       chatMessages.innerHTML = '<div class="no-messages">कोई संदेश नहीं मिला</div>';
+      scrollToBottom();
       return;
     }
 
@@ -388,14 +382,14 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
             </svg>
           </button>
-          <button class="action-btn delete-btn" aria-label="Delete message">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 4v12m4-12v12"></path>
-            </svg>
-          </button>
         `;
       }
       actionsDiv.innerHTML += `
+        <button class="action-btn delete-btn" aria-label="Delete message">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 4v12m4-12v12"></path>
+          </svg>
+        </button>
         <button class="action-btn pin-btn" aria-label="${message.isPinned ? 'Unpin' : 'Pin'} message">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
@@ -431,7 +425,17 @@
       chatMessages.appendChild(messageDiv);
     });
 
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (typingIndicatorElement) {
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'message-container ai justify-start';
+      const typingBubble = document.createElement('div');
+      typingBubble.className = 'ai-message p-3 rounded-lg';
+      typingBubble.appendChild(typingIndicatorElement);
+      typingDiv.appendChild(typingBubble);
+      chatMessages.appendChild(typingDiv);
+    }
+
+    scrollToBottom();
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
     updatePinnedMessages();
   }
@@ -586,12 +590,16 @@
     }
 
     if (controlsToggle) {
-      controlsToggle.addEventListener('click', () => {
-        const chatbotControls = document.querySelector('.chatbot-controls');
-        if (chatbotControls) {
+      const chatbotControls = document.querySelector('.chatbot-controls');
+      if (chatbotControls) {
+        controlsToggle.addEventListener('click', () => {
+          console.log('Toggling controls visibility');
           chatbotControls.classList.toggle('hidden');
-        }
-      });
+          chatbotControls.style.display = chatbotControls.classList.contains('hidden') ? 'none' : 'block';
+        });
+      } else {
+        console.error('Error: .chatbot-controls element not found');
+      }
     }
 
     if (pinnedToggle) {
