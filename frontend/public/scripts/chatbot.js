@@ -311,7 +311,7 @@
     tempDiv.className = 'ai-message';
     tempDiv.innerHTML = formatMarkdown(text);
     document.body.appendChild(tempDiv);
-    const fixedWidth = Math.min(tempDiv.offsetWidth + 20, window.innerWidth * 0.8) + 'px'; // Add padding buffer
+    const fixedWidth = Math.min(tempDiv.offsetWidth + 20, window.innerWidth * 0.8) + 'px';
     document.body.removeChild(tempDiv);
 
     // Render typing indicator and set fixed width
@@ -346,7 +346,7 @@
           updateSuggestions(quickReplies);
         }
         if (messageDiv) {
-          messageDiv.style.width = ''; // Remove fixed width after typing
+          messageDiv.style.width = '';
           messageDiv.style.minWidth = '100px';
         }
         localStorage.setItem('lic-chat', JSON.stringify(window.messages));
@@ -398,12 +398,12 @@
       messageContent.className = 'message-content';
       messageContent.style.fontSize = `${fontSize}px`;
       let formattedText = formatMarkdown(message.text);
-      if (editingMessageId === message.id) {
+      if (editingMessageId === message.id && message.sender === 'user') {
         messageContent.innerHTML = `
           <div class="edit-message flex items-center gap-2">
-            <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}">
-            <button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
-            <button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
+            <button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg" aria-label="Save edited message"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
+            <button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg" aria-label="Cancel edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
           </div>`;
       } else {
         if (message.isPinned && message.associatedQuery) {
@@ -479,7 +479,7 @@
       typingDiv.className = 'message-container ai justify-start';
       const typingBubble = document.createElement('div');
       typingBubble.className = 'ai-message p-3 rounded-lg';
-      typingBubble.style.width = '100px'; // Fixed width for typing indicator
+      typingBubble.style.width = '100px';
       typingBubble.appendChild(typingIndicatorElement);
       typingDiv.appendChild(typingBubble);
       chatMessages.appendChild(typingDiv);
@@ -803,10 +803,12 @@
         const message = window.messages.find(m => m.id == messageId);
         if (!message) return;
 
-        if (target.classList.contains('edit-btn')) {
+        if (target.classList.contains('edit-btn') && message.sender === 'user') {
           editingMessageId = messageId;
-          editedText = cleanTextForSpeech(message.text);
+          editedText = message.text; // Preserve original text without cleaning
           renderMessages();
+          const input = messageDiv.querySelector('.edit-message-input');
+          if (input) input.focus();
         } else if (target.classList.contains('delete-btn')) {
           const popup = document.createElement('div');
           popup.className = 'confirm-popup';
@@ -859,12 +861,35 @@
           }
         } else if (target.classList.contains('edit-message-button')) {
           const input = messageDiv.querySelector('.edit-message-input');
-          if (input.value.trim()) {
-            window.messages = window.messages.map(m => m.id === messageId ? { ...m, text: input.value.trim(), timestamp: new Date().toISOString(), category: categorizeMessage(input.value.trim()).category } : m);
-            editingMessageId = null;
+          const newText = input.value.trim();
+          if (newText && newText !== message.text) {
+            // Update the existing message
+            window.messages = window.messages.map(m =>
+              m.id === messageId
+                ? { ...m, text: newText, timestamp: new Date().toISOString(), category: categorizeMessage(newText).category }
+                : m
+            );
             localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+            editingMessageId = null;
             renderMessages();
-            await showTonePicker(input.value.trim(), messageId);
+            // Treat the edited message as a new user query
+            const newMessageId = Date.now();
+            window.messages.push({
+              sender: 'user',
+              text: newText,
+              id: newMessageId,
+              timestamp: new Date().toISOString(),
+              category: categorizeMessage(newText).category,
+              reactions: [],
+              isPinned: false,
+              associatedQuery: null
+            });
+            renderMessages();
+            await showTonePicker(newText, newMessageId);
+          } else if (newText === message.text) {
+            // No changes, just exit edit mode
+            editingMessageId = null;
+            renderMessages();
           }
         } else if (target.classList.contains('cancel-btn')) {
           editingMessageId = null;
