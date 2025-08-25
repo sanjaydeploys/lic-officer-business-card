@@ -60,8 +60,6 @@
   let showTimestamps = true;
   let searchQuery = '';
   let selectedCategory = '';
-  let pendingMessage = null;
-  let pendingMessageId = null;
   let isPinnedWindowOpen = false;
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
   const suggestedPrompts = {
@@ -118,7 +116,7 @@
 
     let aiResponse;
     let quickReplies = [];
-    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. Structure responses in a table format when providing lists or comparisons (e.g., policy details, benefits). Ensure answers are culturally sensitive and family-friendly.';
+    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. Ensure answers are culturally sensitive and family-friendly.';
     const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi.`;
 
     async function tryApiRequest(apiKey) {
@@ -147,7 +145,7 @@
         const searchResults = await performWebSearch(message);
         aiResponse = searchResults || 'क्षमा करें, मुझे विशिष्ट जानकारी नहीं मिली। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें!';
       }
-      aiResponse = formatResponseWithTable(aiResponse);
+      aiResponse = formatMarkdown(aiResponse); // Use markdown formatting only
       quickReplies = [
         'इस पर और विस्तार से बताएं?',
         'LIC की अन्य योजनाएं क्या हैं?',
@@ -156,7 +154,7 @@
     } catch (error) {
       console.error('Both API requests failed:', error.message);
       const searchResults = await performWebSearch(message);
-      aiResponse = formatResponseWithTable(searchResults || 'कुछ गड़बड़ हो गई। कृपया फिर से प्रयास करें या LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें!');
+      aiResponse = formatMarkdown(searchResults || 'कुछ गड़बड़ हो गई। कृपया फिर से प्रयास करें या LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें!');
       quickReplies = [
         'दूसरा प्रश्न पूछें',
         'LIC की योजनाएं बताएं',
@@ -212,38 +210,13 @@
     renderMessages();
   }
 
-  function formatResponseWithTable(text) {
-    if (!text) return '<p>कोई जानकारी उपलब्ध नहीं।</p>';
-    const listRegex = /(- .+\n)+/g;
-    if (listRegex.test(text)) {
-      const lines = text.split('\n').filter(line => line.trim());
-      let tableContent = '<table class="response-table"><thead><tr><th>विवरण</th></tr></thead><tbody>';
-      let inList = false;
-      lines.forEach(line => {
-        if (line.startsWith('- ')) {
-          inList = true;
-          tableContent += `<tr><td>${line.replace('- ', '').trim()}</td></tr>`;
-        } else {
-          if (inList) {
-            tableContent += '</tbody></table><caption>सूची देखें</caption>';
-            inList = false;
-          }
-          tableContent += `<p>${line.trim()}</p>`;
-        }
-      });
-      if (inList) tableContent += '</tbody></table><caption>सूची देखें</caption>';
-      return tableContent;
-    }
-    return `<p>${text}</p>`;
-  }
-
   function formatMarkdown(text) {
-    if (!text) return '';
+    if (!text) return '<p>कोई जानकारी उपलब्ध नहीं।</p>';
     text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
     text = text.replace(/^- (.*?)$/gm, '<li>$1</li>');
     text = text.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
-    return text;
+    return `<p>${text}</p>`;
   }
 
   function categorizeMessage(message) {
@@ -278,7 +251,10 @@
     const chatMessages = document.getElementById('chat-messages');
     if (chatMessages) {
       chatMessages.appendChild(typingIndicator);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      // Only scroll if this is a new message
+      if (window.messages[window.messages.length - 1].id === messageId) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
     }
 
     function type() {
@@ -298,7 +274,7 @@
         localStorage.setItem('lic-chat', JSON.stringify(window.messages));
         renderMessages();
         if (isAutoSpeakEnabled && window.speakMessage) {
-          const cleanText = message.text.includes('<table') ? 'सूची देखें' : message.text.replace(/<[^>]+>/g, '').replace(/[*_~`]/g, '');
+          const cleanText = message.text.replace(/<[^>]+>/g, '').replace(/[*_~`]/g, '');
           try {
             window.speakMessage(messageId, cleanText, currentLang);
           } catch (e) {
@@ -350,7 +326,7 @@
       const messageContent = document.createElement('div');
       messageContent.className = 'message-content';
       messageContent.style.fontSize = `${fontSize}px`;
-      let formattedText = formatMarkdown(message.text);
+      let formattedText = message.text;
       if (editingMessageId === message.id) {
         messageContent.innerHTML = `
           <div class="edit-message flex items-center gap-2">
@@ -427,7 +403,10 @@
       chatMessages.appendChild(messageDiv);
     });
 
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    // Only scroll to bottom if adding a new message
+    if (window.messages[window.messages.length - 1].id === filteredMessages[filteredMessages.length - 1].id) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
     updatePinnedMessages();
   }
@@ -448,7 +427,7 @@
         pinnedDiv.className = 'pinned-message';
         pinnedDiv.innerHTML = `
           <p><strong>प्रश्न:</strong> ${message.associatedQuery || 'N/A'}</p>
-          <p><strong>उत्तर:</strong> ${formatMarkdown(message.text)}</p>
+          <p><strong>उत्तर:</strong> ${message.text}</p>
           <button class="unpin-btn">अनपिन करें</button>
         `;
         pinnedDiv.querySelector('.unpin-btn').addEventListener('click', () => {
@@ -788,7 +767,7 @@
           });
           target.parentElement.appendChild(picker);
         } else if (target.classList.contains('speak-btn')) {
-          const cleanText = message.text.includes('<table') ? 'सूची देखें' : message.text.replace(/<[^>]+>/g, '').replace(/[*_~`]/g, '');
+          const cleanText = message.text.replace(/<[^>]+>/g, '').replace(/[*_~`]/g, '');
           if (window.speakMessage) {
             try {
               window.speakMessage(message.id, cleanText, currentLang);
