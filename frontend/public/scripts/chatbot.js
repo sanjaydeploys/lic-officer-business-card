@@ -93,30 +93,6 @@
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
 
-  // Initialize DOM elements
-  const chatMessages = document.getElementById('chat-messages');
-  const chatInput = document.getElementById('chat-input');
-  const sendBtn = document.querySelector('.send-btn');
-  const voiceBtn = document.querySelector('.voice-btn');
-  const themeBtn = document.querySelector('.theme-btn');
-  const controlsToggle = document.querySelector('.controls-toggle');
-  const chatControls = document.getElementById('chat-controls');
-  const fontIncreaseBtn = document.querySelector('.font-increase-btn');
-  const fontDecreaseBtn = document.querySelector('.font-decrease-btn');
-  const volumeControl = document.getElementById('volume-control');
-  const historyBtn = document.querySelector('.history-btn');
-  const autoReplyBtn = document.querySelector('.auto-reply-btn');
-  const autoSpeakBtn = document.querySelector('.auto-speak-btn');
-  const timestampBtn = document.querySelector('.timestamp-btn');
-  const searchBar = document.getElementById('search-bar');
-  const searchToggle = document.querySelector('.search-toggle');
-  const categoryFilter = document.getElementById('category-filter');
-  const clearBtn = document.querySelector('.clear-btn');
-  const pinnedToggle = document.querySelector('.pinned-toggle');
-  const pinnedMessagesWindow = document.getElementById('pinned-messages-window');
-  const chatSuggestions = document.getElementById('chat-suggestions');
-  const chatbotContainer = document.querySelector('.chatbot-container');
-
   // Load LIC context from single file
   function getContext() {
     return window.licContext?.hindiContext || 'LIC India context not available';
@@ -309,6 +285,7 @@
   }
 
   function scrollToBottom() {
+    const chatMessages = document.getElementById('chat-messages');
     if (chatMessages) {
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -319,7 +296,6 @@
     if (!message) return;
     let index = 0;
     const speed = 50;
-    let cleanedText = '';
     typingIndicatorElement = document.createElement('div');
     typingIndicatorElement.className = 'typing-indicator';
     typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
@@ -338,17 +314,8 @@
     const fixedWidth = Math.min(tempDiv.offsetWidth + 20, window.innerWidth * 0.8) + 'px'; // Add padding buffer
     document.body.removeChild(tempDiv);
 
-    // Clean text for speech and start audio immediately
-    cleanedText = cleanTextForSpeech(text);
-    if (isAutoSpeakEnabled && window.speakMessage && cleanedText.trim()) {
-      try {
-        window.speakMessage(messageId, cleanedText, currentLang);
-      } catch (e) {
-        console.error('Speech synthesis error:', e);
-      }
-    }
-
-    // Apply fixed width during typing
+    // Render typing indicator and set fixed width
+    renderMessages();
     const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .ai-message`);
     if (messageDiv) {
       messageDiv.style.width = fixedWidth;
@@ -360,6 +327,17 @@
         message.text = text.slice(0, index + 1);
         renderMessages();
         index++;
+        // Start speech synthesis after first character to align with typing
+        if (index === 1 && isAutoSpeakEnabled && window.speakMessage) {
+          const cleanedText = cleanTextForSpeech(text);
+          if (cleanedText.trim()) {
+            try {
+              window.speakMessage(messageId, cleanedText, currentLang);
+            } catch (e) {
+              console.error('Speech synthesis error:', e);
+            }
+          }
+        }
         setTimeout(type, speed);
       } else {
         message.text = text;
@@ -379,6 +357,7 @@
   }
 
   function renderMessages() {
+    const chatMessages = document.getElementById('chat-messages');
     if (!chatMessages) {
       console.error('Error: #chat-messages element not found');
       return;
@@ -427,411 +406,485 @@
             <button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
           </div>`;
       } else {
-        messageContent.innerHTML = formattedText;
+        if (message.isPinned && message.associatedQuery) {
+          messageContent.innerHTML = `<p><strong>प्रश्न:</strong> ${message.associatedQuery}</p><p><strong>उत्तर:</strong> ${formattedText}</p>`;
+        } else {
+          messageContent.innerHTML = formattedText;
+        }
         if (message.imageUrl) {
-          const img = document.createElement('img');
-          img.src = message.imageUrl;
-          img.alt = message.imageAlt || 'LIC image';
-          img.className = 'message-image';
-          messageContent.appendChild(img);
+          messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'LIC संबंधित छवि'}" class="message-image" loading="lazy">`;
+        }
+        if (showTimestamps) {
+          const timeSpan = document.createElement('span');
+          timeSpan.className = 'message-timestamp';
+          timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+          messageContent.appendChild(timeSpan);
         }
       }
-      bubbleDiv.appendChild(messageContent);
-
-      if (showTimestamps) {
-        const timestampDiv = document.createElement('div');
-        timestampDiv.className = 'message-timestamp text-right text-xs text-[#546E7A] dark:text-[#8696A0]';
-        timestampDiv.textContent = new Date(message.timestamp).toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });
-        bubbleDiv.appendChild(timestampDiv);
-      }
-
-      const reactionsDiv = document.createElement('div');
-      reactionsDiv.className = 'message-reactions flex gap-1 mt-1';
-      message.reactions.forEach(reaction => {
-        const reactionTag = document.createElement('span');
-        reactionTag.className = 'reaction-tag text-sm px-1 bg-[#128C7E] dark:bg-[#0A3D37] text-white rounded';
-        reactionTag.textContent = reaction;
-        reactionsDiv.appendChild(reactionTag);
-      });
-      bubbleDiv.appendChild(reactionsDiv);
 
       const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'message-actions flex gap-1 mt-1 justify-end';
-      const pinBtn = document.createElement('button');
-      pinBtn.className = 'action-btn p-1 rounded hover:bg-[#25D366]';
-      pinBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>`;
-      pinBtn.title = message.isPinned ? 'अनपिन करें' : 'पिन करें';
-      actionsDiv.appendChild(pinBtn);
-
-      const reactBtn = document.createElement('button');
-      reactBtn.className = 'action-btn p-1 rounded hover:bg-[#25D366]';
-      reactBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
-      reactBtn.title = 'रिएक्शन जोड़ें';
-      actionsDiv.appendChild(reactBtn);
-
+      actionsDiv.className = 'message-actions';
       if (message.sender === 'user') {
-        const editBtn = document.createElement('button');
-        editBtn.className = 'action-btn p-1 rounded hover:bg-[#25D366]';
-        editBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>`;
-        editBtn.title = 'संपादित करें';
-        actionsDiv.appendChild(editBtn);
+        actionsDiv.innerHTML = `
+          <button class="action-btn edit-btn" aria-label="Edit message">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+          </button>
+        `;
+      }
+      actionsDiv.innerHTML += `
+        <button class="action-btn delete-btn" aria-label="Delete message">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 4v12m4-12v12"></path>
+          </svg>
+        </button>
+        <button class="action-btn pin-btn" aria-label="${message.isPinned ? 'Unpin' : 'Pin'} message">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+          </svg>
+        </button>
+        <button class="action-btn react-btn" aria-label="Add reaction">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </button>
+        <button class="action-btn speak-btn" aria-label="${message.isSpeaking ? 'Pause message' : 'Speak message'}">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${message.isSpeaking ? 'M10 9v6m4-6v6' : 'M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z'}"></path>
+          </svg>
+        </button>
+      `;
+      messageContent.appendChild(actionsDiv);
+
+      if (message.reactions.length > 0) {
+        const reactionsDiv = document.createElement('div');
+        reactionsDiv.className = 'message-reactions';
+        message.reactions.forEach(reaction => {
+          const reactionTag = document.createElement('span');
+          reactionTag.className = 'reaction-tag';
+          reactionTag.textContent = reaction;
+          reactionsDiv.appendChild(reactionTag);
+        });
+        messageContent.appendChild(reactionsDiv);
       }
 
-      bubbleDiv.appendChild(actionsDiv);
+      bubbleDiv.appendChild(messageContent);
       messageDiv.appendChild(bubbleDiv);
       chatMessages.appendChild(messageDiv);
-
-      if (message.id === editingMessageId) {
-        const editInput = messageContent.querySelector('.edit-message-input');
-        editInput.focus();
-        editInput.addEventListener('input', (e) => {
-          editedText = e.target.value;
-        });
-        messageContent.querySelector('.edit-message-button').addEventListener('click', () => {
-          if (editedText.trim()) {
-            message.text = editedText;
-            editingMessageId = null;
-            editedText = '';
-            localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-            renderMessages();
-          }
-        });
-        messageContent.querySelector('.cancel-btn').addEventListener('click', () => {
-          editingMessageId = null;
-          editedText = '';
-          renderMessages();
-        });
-      }
-
-      pinBtn.addEventListener('click', () => {
-        message.isPinned = !message.isPinned;
-        localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-        renderMessages();
-        renderPinnedMessages();
-      });
-
-      reactBtn.addEventListener('click', () => {
-        const existingPicker = document.querySelector('.reaction-picker');
-        if (existingPicker) existingPicker.remove();
-        const picker = document.createElement('div');
-        picker.className = 'reaction-picker absolute bottom-8 right-0 bg-[#ECE5DD] dark:bg-[#111B21] border border-[#128C7E] dark:border-[#0A3D37] rounded-lg p-1 flex gap-1 shadow-lg';
-        emojiOptions.forEach(emoji => {
-          const emojiBtn = document.createElement('span');
-          emojiBtn.className = 'reaction-picker-item text-sm p-1 cursor-pointer hover:bg-[#25D366] rounded';
-          emojiBtn.textContent = emoji;
-          emojiBtn.addEventListener('click', () => {
-            if (!message.reactions.includes(emoji)) {
-              message.reactions.push(emoji);
-              interactionAnalytics.reactionsUsed++;
-              localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-              renderMessages();
-            }
-            picker.remove();
-          });
-          picker.appendChild(emojiBtn);
-        });
-        bubbleDiv.appendChild(picker);
-      });
-
-      if (message.sender === 'user') {
-        messageContent.querySelector('.edit-message-button')?.addEventListener('click', () => {
-          if (editedText.trim()) {
-            message.text = editedText;
-            editingMessageId = null;
-            editedText = '';
-            localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-            renderMessages();
-          }
-        });
-        messageContent.querySelector('.cancel-btn')?.addEventListener('click', () => {
-          editingMessageId = null;
-          editedText = '';
-          renderMessages();
-        });
-      }
     });
 
     if (typingIndicatorElement) {
-      chatMessages.appendChild(typingIndicatorElement);
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'message-container ai justify-start';
+      const typingBubble = document.createElement('div');
+      typingBubble.className = 'ai-message p-3 rounded-lg';
+      typingBubble.style.width = '100px'; // Fixed width for typing indicator
+      typingBubble.appendChild(typingIndicatorElement);
+      typingDiv.appendChild(typingBubble);
+      chatMessages.appendChild(typingDiv);
     }
+
     scrollToBottom();
-    renderPinnedMessages();
+    localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+    updatePinnedMessages();
   }
 
-  function renderPinnedMessages() {
-    if (!pinnedMessagesWindow) return;
-    pinnedMessagesWindow.innerHTML = '';
+  function updatePinnedMessages() {
+    const pinnedWindow = document.getElementById('pinned-messages-window');
+    if (!pinnedWindow) {
+      console.error('Pinned messages window not found');
+      return;
+    }
+    pinnedWindow.innerHTML = '<h3>पिन किए गए संदेश</h3>';
     const pinnedMessages = window.messages.filter(m => m.isPinned);
-    if (pinnedMessages.length > 0 && isPinnedWindowOpen) {
-      pinnedMessagesWindow.classList.add('active');
-      const title = document.createElement('h3');
-      title.textContent = 'पिन किए गए संदेश';
-      pinnedMessagesWindow.appendChild(title);
+    if (pinnedMessages.length === 0) {
+      pinnedWindow.innerHTML += '<p>कोई पिन किया हुआ संदेश नहीं</p>';
+    } else {
       pinnedMessages.forEach(message => {
         const pinnedDiv = document.createElement('div');
-        pinnedDiv.className = 'pinned-message p-2 rounded-lg bg-[#FFFFFF] dark:bg-[#202C33] mb-2 shadow';
-        const text = document.createElement('p');
-        text.innerHTML = formatMarkdown(message.text);
-        pinnedDiv.appendChild(text);
-        const unpinBtn = document.createElement('button');
-        unpinBtn.className = 'unpin-btn bg-[#FF4D4F] text-white p-1 rounded mt-1';
-        unpinBtn.textContent = 'अनपिन करें';
-        unpinBtn.addEventListener('click', () => {
+        pinnedDiv.className = 'pinned-message';
+        pinnedDiv.innerHTML = `
+          <p><strong>प्रश्न:</strong> ${message.associatedQuery || 'N/A'}</p>
+          <p><strong>उत्तर:</strong> ${formatMarkdown(message.text)}</p>
+          <button class="unpin-btn">अनपिन करें</button>
+        `;
+        pinnedDiv.querySelector('.unpin-btn').addEventListener('click', () => {
           message.isPinned = false;
-          localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+          updatePinnedMessages();
           renderMessages();
-          renderPinnedMessages();
         });
-        pinnedDiv.appendChild(unpinBtn);
-        pinnedMessagesWindow.appendChild(pinnedDiv);
+        pinnedWindow.appendChild(pinnedDiv);
       });
-    } else {
-      pinnedMessagesWindow.classList.remove('active');
     }
   }
 
-  function updateSuggestions(prompts) {
-    if (!chatSuggestions) return;
-    chatSuggestions.innerHTML = '';
-    filteredSuggestions = prompts || suggestedPrompts[currentLang];
+  function updateSuggestions(prompts = suggestedPrompts[currentLang]) {
+    const suggestionsContainer = document.getElementById('chat-suggestions');
+    if (!suggestionsContainer) {
+      console.error('Suggestions container not found');
+      return;
+    }
+    suggestionsContainer.innerHTML = '';
+    filteredSuggestions = prompts.filter(p => !searchQuery || p.toLowerCase().includes(searchQuery.toLowerCase()));
     filteredSuggestions.forEach(prompt => {
       const btn = document.createElement('button');
-      btn.className = 'suggestion-btn p-2 bg-[#128C7E] dark:bg-[#0A3D37] text-white rounded-lg text-sm hover:bg-[#25D366]';
+      btn.className = 'suggestion-btn';
       btn.textContent = prompt;
       btn.addEventListener('click', () => {
-        chatInput.value = prompt;
-        sendMessage(prompt);
+        const chatInput = document.getElementById('chat-input');
+        if (chatInput) {
+          chatInput.value = prompt;
+          sendMessage(prompt);
+        }
       });
-      chatSuggestions.appendChild(btn);
+      suggestionsContainer.appendChild(btn);
     });
   }
 
-  function sendMessage(messageText) {
-    if (!messageText.trim() || isLoading) return;
+  function sendMessage(message) {
+    if (!message || isLoading) return;
     const messageId = Date.now();
     window.messages.push({
       sender: 'user',
-      text: messageText,
+      text: message,
       id: messageId,
       timestamp: new Date().toISOString(),
-      category: categorizeMessage(messageText).category,
+      category: categorizeMessage(message).category,
       reactions: [],
       isPinned: false,
       associatedQuery: null
     });
-    localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-    chatInput.value = '';
     renderMessages();
-    showTonePicker(messageText, messageId);
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) chatInput.value = '';
+    showTonePicker(message, messageId);
   }
 
-  function initializeSpeechRecognition() {
-    if (!recognition) {
-      voiceBtn.disabled = true;
+  document.addEventListener('DOMContentLoaded', () => {
+    renderMessages();
+    updateSuggestions();
+
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.querySelector('.send-btn');
+    const voiceBtn = document.querySelector('.voice-btn');
+    const controlsToggle = document.querySelector('.controls-toggle');
+    const pinnedToggle = document.querySelector('.pinned-toggle');
+    const themeBtn = document.querySelector('.theme-btn');
+    const searchToggle = document.querySelector('.search-toggle');
+    const historyBtn = document.querySelector('.history-btn');
+    const autoReplyBtn = document.querySelector('.auto-reply-btn');
+    const autoSpeakBtn = document.querySelector('.auto-speak-btn');
+    const timestampBtn = document.querySelector('.timestamp-btn');
+    const clearBtn = document.querySelector('.clear-btn');
+    const volumeControl = document.getElementById('volume-control');
+    const fontIncreaseBtn = document.querySelector('.font-increase-btn');
+    const fontDecreaseBtn = document.querySelector('.font-decrease-btn');
+    const categoryFilter = document.getElementById('category-filter');
+    const searchBar = document.getElementById('search-bar');
+    const chatbotContainer = document.getElementById('chatbot-container');
+    const chatMessages = document.getElementById('chat-messages');
+
+    if (!chatInput || !sendBtn || !chatbotContainer || !chatMessages) {
+      console.error('Critical UI elements missing');
       return;
     }
-    recognition.lang = 'hi-IN';
-    recognition.interimResults = true;
-    recognition.continuous = false;
 
-    recognition.onresult = (event) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
+    chatInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter' && !isLoading) {
+        const message = chatInput.value.trim();
+        if (message) sendMessage(message);
+      }
+    });
+
+    sendBtn.addEventListener('click', () => {
+      const message = chatInput.value.trim();
+      if (message && !isLoading) sendMessage(message);
+    });
+
+    if (recognition && voiceBtn) {
+      recognition.lang = 'hi-IN';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      voiceBtn.addEventListener('click', () => {
+        if (isRecording) {
+          recognition.stop();
+          voiceBtn.classList.remove('recording');
+          isRecording = false;
         } else {
-          interimTranscript += transcript;
-        }
-      }
-      chatInput.value = finalTranscript || interimTranscript;
-    };
-
-    recognition.onend = () => {
-      if (isRecording) {
-        isRecording = false;
-        voiceBtn.classList.remove('recording');
-        if (chatInput.value.trim()) {
+          recognition.start();
+          voiceBtn.classList.add('recording');
+          isRecording = true;
           interactionAnalytics.speechUsed++;
-          sendMessage(chatInput.value);
         }
-      }
-    };
-
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      isRecording = false;
-      voiceBtn.classList.remove('recording');
-      chatInput.value = 'स्पीच रिकग्निशन में त्रुटि। कृपया फिर से कोशिश करें।';
-    };
-  }
-
-  function showConfirmPopup(message, onConfirm) {
-    const popup = document.createElement('div');
-    popup.className = 'confirm-popup bg-[#ECE5DD] dark:bg-[#111B21] p-4 rounded-lg shadow-lg';
-    popup.innerHTML = `
-      <p class="text-[#111B21] dark:text-[#E9EDEF]">${message}</p>
-      <button class="confirm-btn bg-[#25D366] text-white px-4 py-2 rounded-lg">हाँ</button>
-      <button class="cancel-btn bg-[#FF4D4F] text-white px-4 py-2 rounded-lg">नहीं</button>
-    `;
-    document.body.appendChild(popup);
-    popup.querySelector('.confirm-btn').addEventListener('click', () => {
-      onConfirm();
-      popup.remove();
-    });
-    popup.querySelector('.cancel-btn').addEventListener('click', () => {
-      popup.remove();
-    });
-  }
-
-  // Event Listeners
-  if (chatInput && sendBtn) {
-    chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage(chatInput.value);
-      }
-    });
-    sendBtn.addEventListener('click', () => sendMessage(chatInput.value));
-  }
-
-  if (voiceBtn) {
-    voiceBtn.addEventListener('click', () => {
-      if (!recognition) return;
-      if (!isRecording) {
-        isRecording = true;
-        voiceBtn.classList.add('recording');
-        chatInput.value = '';
-        recognition.start();
-      } else {
-        isRecording = false;
+      });
+      recognition.onresult = event => {
+        const transcript = event.results[0][0].transcript;
+        chatInput.value = transcript;
+        if (!isLoading) sendMessage(transcript);
         voiceBtn.classList.remove('recording');
-        recognition.stop();
+        isRecording = false;
+      };
+      recognition.onerror = event => {
+        console.error('Speech recognition error:', event.error);
+        voiceBtn.classList.remove('recording');
+        isRecording = false;
+        chatInput.value = 'क्षमा करें, आवाज पहचान में त्रुटि।';
+      };
+      recognition.onend = () => {
+        voiceBtn.classList.remove('recording');
+        isRecording = false;
+      };
+    } else if (voiceBtn) {
+      voiceBtn.disabled = true;
+    }
+
+    if (controlsToggle) {
+      const chatbotControls = document.querySelector('.chatbot-controls');
+      if (chatbotControls) {
+        controlsToggle.addEventListener('click', () => {
+          chatbotControls.classList.toggle('hidden');
+          chatbotControls.style.display = chatbotControls.classList.contains('hidden') ? 'none' : 'block';
+        });
+      } else {
+        console.error('Error: .chatbot-controls element not found');
       }
-    });
-  }
+    }
 
-  if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
-      isDarkMode = !isDarkMode;
-      localStorage.setItem('chat-theme', isDarkMode ? 'dark' : 'light');
-      chatbotContainer.classList.toggle('dark', isDarkMode);
-      renderMessages();
-    });
-  }
+    if (pinnedToggle) {
+      pinnedToggle.addEventListener('click', () => {
+        isPinnedWindowOpen = !isPinnedWindowOpen;
+        const pinnedWindow = document.getElementById('pinned-messages-window');
+        if (pinnedWindow) {
+          pinnedToggle.classList.toggle('active', isPinnedWindowOpen);
+          pinnedWindow.classList.toggle('active', isPinnedWindowOpen);
+          updatePinnedMessages();
+        }
+      });
+    }
 
-  if (controlsToggle && chatControls) {
-    controlsToggle.addEventListener('click', () => {
-      chatControls.classList.toggle('hidden');
-    });
-  }
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        isDarkMode = !isDarkMode;
+        chatbotContainer.classList.toggle('dark', isDarkMode);
+        localStorage.setItem('chat-theme', isDarkMode ? 'dark' : 'light');
+      });
+    }
 
-  if (fontIncreaseBtn) {
-    fontIncreaseBtn.addEventListener('click', () => {
-      if (fontSize < 24) {
-        fontSize += 2;
-        localStorage.setItem('chat-font-size', fontSize);
-        renderMessages();
-      }
-    });
-  }
+    if (searchToggle) {
+      searchToggle.addEventListener('click', () => {
+        if (searchBar) {
+          searchBar.classList.toggle('hidden');
+          if (!searchBar.classList.contains('hidden')) {
+            searchBar.focus();
+          } else {
+            searchQuery = '';
+            searchBar.value = '';
+            renderMessages();
+            updateSuggestions();
+          }
+        }
+      });
+    }
 
-  if (fontDecreaseBtn) {
-    fontDecreaseBtn.addEventListener('click', () => {
-      if (fontSize > 12) {
-        fontSize -= 2;
-        localStorage.setItem('chat-font-size', fontSize);
-        renderMessages();
-      }
-    });
-  }
-
-  if (volumeControl) {
-    volumeControl.addEventListener('input', (e) => {
-      window.setVolume?.(parseFloat(e.target.value));
-    });
-  }
-
-  if (historyBtn) {
-    historyBtn.addEventListener('click', () => {
-      isHistoryCollapsed = !isHistoryCollapsed;
-      historyBtn.textContent = isHistoryCollapsed ? 'इतिहास दिखाएं' : 'इतिहास छिपाएं';
-      renderMessages();
-    });
-  }
-
-  if (autoReplyBtn) {
-    autoReplyBtn.addEventListener('click', () => {
-      isAutoReplyEnabled = !isAutoReplyEnabled;
-      autoReplyBtn.textContent = `ऑटो-रिप्लाई: ${isAutoReplyEnabled ? 'चालू' : 'बंद'}`;
-    });
-  }
-
-  if (autoSpeakBtn) {
-    autoSpeakBtn.addEventListener('click', () => {
-      isAutoSpeakEnabled = !isAutoSpeakEnabled;
-      autoSpeakBtn.textContent = `ऑटो-स्पीक: ${isAutoSpeakEnabled ? 'चालू' : 'बंद'}`;
-    });
-  }
-
-  if (timestampBtn) {
-    timestampBtn.addEventListener('click', () => {
-      showTimestamps = !showTimestamps;
-      timestampBtn.textContent = showTimestamps ? 'टाइमस्टैम्प छिपाएं' : 'टाइमस्टैम्प दिखाएं';
-      renderMessages();
-    });
-  }
-
-  if (searchBar && searchToggle) {
-    searchToggle.addEventListener('click', () => {
-      searchBar.classList.toggle('hidden');
-      if (!searchBar.classList.contains('hidden')) {
-        searchBar.focus();
-      }
-    });
-    searchBar.addEventListener('input', (e) => {
-      searchQuery = e.target.value;
-      renderMessages();
-    });
-  }
-
-  if (categoryFilter) {
-    categoryFilter.addEventListener('change', (e) => {
-      selectedCategory = e.target.value;
-      renderMessages();
-    });
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      showConfirmPopup('क्या आप चैट इतिहास साफ करना चाहते हैं?', () => {
-        window.messages = [{
-          sender: 'ai',
-          text: 'हाय! मैं LIC इंडिया का चैटबॉट हूँ। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "पॉलिसी की स्थिति कैसे जांचें?"',
-          id: 'welcome',
-          timestamp: new Date().toISOString(),
-          category: 'welcome',
-          reactions: [],
-          isPinned: false,
-          associatedQuery: null
-        }];
-        localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+    if (historyBtn) {
+      historyBtn.addEventListener('click', () => {
+        isHistoryCollapsed = !isHistoryCollapsed;
+        historyBtn.textContent = isHistoryCollapsed ? 'इतिहास दिखाएं' : 'इतिहास छिपाएं';
         renderMessages();
       });
-    });
-  }
+    }
 
-  if (pinnedToggle) {
-    pinnedToggle.addEventListener('click', () => {
-      isPinnedWindowOpen = !isPinnedWindowOpen;
-      renderPinnedMessages();
-    });
-  }
+    if (autoReplyBtn) {
+      autoReplyBtn.addEventListener('click', () => {
+        isAutoReplyEnabled = !isAutoReplyEnabled;
+        autoReplyBtn.textContent = `ऑटो-रिप्लाई: ${isAutoReplyEnabled ? 'चालू' : 'बंद'}`;
+      });
+    }
 
-  // Initialize
-  chatbotContainer.classList.toggle('dark', isDarkMode);
-  updateSuggestions();
-  renderMessages();
-  initializeSpeechRecognition();
+    if (autoSpeakBtn) {
+      autoSpeakBtn.addEventListener('click', () => {
+        isAutoSpeakEnabled = !isAutoSpeakEnabled;
+        autoSpeakBtn.textContent = `ऑटो-स्पीक: ${isAutoSpeakEnabled ? 'चालू' : 'बंद'}`;
+      });
+    }
+
+    if (timestampBtn) {
+      timestampBtn.addEventListener('click', () => {
+        showTimestamps = !showTimestamps;
+        timestampBtn.textContent = showTimestamps ? 'टाइमस्टैम्प छिपाएं' : 'टाइमस्टैम्प दिखाएं';
+        renderMessages();
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        const popup = document.createElement('div');
+        popup.className = 'confirm-popup';
+        popup.innerHTML = `
+          <p>क्या आप वाकई चैट इतिहास साफ करना चाहते हैं?</p>
+          <button class="confirm-btn">हां</button>
+          <button class="cancel-btn">नहीं</button>
+        `;
+        document.body.appendChild(popup);
+        popup.querySelector('.confirm-btn').addEventListener('click', () => {
+          window.messages = [{
+            sender: 'ai',
+            text: 'हाय! मैं LIC इंडिया का चैटबॉट हूँ। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "पॉलिसी की स्थिति कैसे जांचें?"',
+            id: 'welcome',
+            timestamp: new Date().toISOString(),
+            category: 'welcome',
+            reactions: [],
+            isPinned: false,
+            associatedQuery: null
+          }];
+          localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+          renderMessages();
+          updateSuggestions();
+          popup.remove();
+        });
+        popup.querySelector('.cancel-btn').addEventListener('click', () => {
+          popup.remove();
+        });
+      });
+    }
+
+    if (volumeControl) {
+      volumeControl.addEventListener('input', () => {
+        if (window.setSpeechVolume) {
+          window.setSpeechVolume(volumeControl.value);
+          localStorage.setItem('chat-volume', volumeControl.value);
+        }
+      });
+    }
+
+    if (fontIncreaseBtn) {
+      fontIncreaseBtn.addEventListener('click', () => {
+        if (fontSize < 24) {
+          fontSize += 2;
+          localStorage.setItem('chat-font-size', fontSize);
+          renderMessages();
+        }
+      });
+    }
+
+    if (fontDecreaseBtn) {
+      fontDecreaseBtn.addEventListener('click', () => {
+        if (fontSize > 12) {
+          fontSize -= 2;
+          localStorage.setItem('chat-font-size', fontSize);
+          renderMessages();
+        }
+      });
+    }
+
+    if (categoryFilter) {
+      categoryFilter.addEventListener('change', () => {
+        selectedCategory = categoryFilter.value;
+        renderMessages();
+        updateSuggestions();
+      });
+    }
+
+    if (searchBar) {
+      searchBar.addEventListener('input', () => {
+        searchQuery = searchBar.value.trim();
+        renderMessages();
+        updateSuggestions();
+      });
+    }
+
+    if (chatMessages) {
+      chatMessages.addEventListener('click', async e => {
+        const target = e.target.closest('.action-btn, .edit-message-button, .cancel-btn');
+        if (!target) return;
+        const messageDiv = target.closest('.message-container');
+        const messageId = messageDiv.dataset.messageId;
+        const message = window.messages.find(m => m.id == messageId);
+        if (!message) return;
+
+        if (target.classList.contains('edit-btn')) {
+          editingMessageId = messageId;
+          editedText = cleanTextForSpeech(message.text);
+          renderMessages();
+        } else if (target.classList.contains('delete-btn')) {
+          const popup = document.createElement('div');
+          popup.className = 'confirm-popup';
+          popup.innerHTML = `
+            <p>क्या आप इस संदेश को हटाना चाहते हैं?</p>
+            <button class="confirm-btn">हां</button>
+            <button class="cancel-btn">नहीं</button>
+          `;
+          document.body.appendChild(popup);
+          popup.querySelector('.confirm-btn').addEventListener('click', () => {
+            window.messages = window.messages.filter(m => m.id != messageId);
+            localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+            renderMessages();
+            updatePinnedMessages();
+            popup.remove();
+          });
+          popup.querySelector('.cancel-btn').addEventListener('click', () => {
+            popup.remove();
+          });
+        } else if (target.classList.contains('pin-btn')) {
+          message.isPinned = !message.isPinned;
+          updatePinnedMessages();
+          renderMessages();
+        } else if (target.classList.contains('react-btn')) {
+          const picker = document.createElement('div');
+          picker.className = 'reaction-picker';
+          emojiOptions.forEach(emoji => {
+            const item = document.createElement('span');
+            item.className = 'reaction-picker-item';
+            item.textContent = emoji;
+            item.addEventListener('click', () => {
+              if (!message.reactions.includes(emoji)) {
+                message.reactions.push(emoji);
+                interactionAnalytics.reactionsUsed++;
+                renderMessages();
+              }
+              picker.remove();
+            });
+            picker.appendChild(item);
+          });
+          target.parentElement.appendChild(picker);
+        } else if (target.classList.contains('speak-btn')) {
+          const cleanText = cleanTextForSpeech(message.text);
+          if (window.speakMessage && cleanText.trim()) {
+            try {
+              window.speakMessage(message.id, cleanText, currentLang);
+            } catch (e) {
+              console.error('Speech synthesis error:', e);
+            }
+          }
+        } else if (target.classList.contains('edit-message-button')) {
+          const input = messageDiv.querySelector('.edit-message-input');
+          if (input.value.trim()) {
+            window.messages = window.messages.map(m => m.id === messageId ? { ...m, text: input.value.trim(), timestamp: new Date().toISOString(), category: categorizeMessage(input.value.trim()).category } : m);
+            editingMessageId = null;
+            localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+            renderMessages();
+            await showTonePicker(input.value.trim(), messageId);
+          }
+        } else if (target.classList.contains('cancel-btn')) {
+          editingMessageId = null;
+          renderMessages();
+        }
+      });
+    }
+
+    const socialToggle = document.querySelector('.social-toggle-button');
+    const socialLinks = document.querySelector('.social-share-links');
+    if (socialToggle && socialLinks) {
+      socialToggle.addEventListener('click', () => {
+        socialLinks.classList.toggle('open');
+        socialToggle.classList.toggle('active');
+      });
+    }
+
+    if (volumeControl) {
+      volumeControl.value = localStorage.getItem('chat-volume') || 1;
+      if (window.setSpeechVolume) window.setSpeechVolume(volumeControl.value);
+    }
+  });
 })();
