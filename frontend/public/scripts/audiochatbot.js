@@ -17,11 +17,17 @@
         console.log('Voices loaded:', voices.map(v => `${v.name} (${v.lang})`));
         resolve(voices);
       };
-      // No timeout; rely on onvoiceschanged event
     });
   }
 
-  // Robust chunking for long messages
+  function cleanTextForSpeech(text) {
+    return text
+      .replace(/<[^>]+>/g, '') // Remove HTML tags
+      .replace(/[*_~`#]/g, '') // Remove markdown special characters
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+  }
+
   function chunkText(text, maxLength = 500) {
     if (!text || text.trim() === '') return [text];
     const chunks = [];
@@ -32,19 +38,19 @@
       const words = paragraph.split(/\s+/);
       for (const word of words) {
         if ((currentChunk + ' ' + word).length > maxLength) {
-          if (currentChunk) chunks.push(currentChunk.trim());
+          if (currentChunk) chunks.push(cleanTextForSpeech(currentChunk.trim()));
           currentChunk = word;
         } else {
           currentChunk += (currentChunk ? ' ' : '') + word;
         }
       }
       if (currentChunk) {
-        chunks.push(currentChunk.trim());
+        chunks.push(cleanTextForSpeech(currentChunk.trim()));
         currentChunk = '';
       }
     }
-    if (currentChunk) chunks.push(currentChunk.trim());
-    return chunks.length > 0 ? chunks : [text];
+    if (currentChunk) chunks.push(cleanTextForSpeech(currentChunk.trim()));
+    return chunks.length > 0 ? chunks : [cleanTextForSpeech(text)];
   }
 
   async function speakMessage(messageId, text, lang) {
@@ -129,7 +135,7 @@
 
       const utterance = new SpeechSynthesisUtterance();
       utterance.volume = volume;
-      utterance.rate = lang === 'hi' ? rate * 0.9 : rate; // Slower rate for Hindi clarity
+      utterance.rate = lang === 'hi' ? rate * 0.9 : rate;
       utterance.pitch = 1;
       utterance.text = state.chunks[state.currentChunk].trim() || 'No text available.';
       utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US';
@@ -141,7 +147,7 @@
           voice = voices.find(v => v.lang === 'hi-IN' && v.name.includes('Google')) ||
                   voices.find(v => v.lang === 'hi-IN') ||
                   voices.find(v => v.lang === 'hi') ||
-                  voices.find(v => v.lang.includes('en')); // Fallback to English
+                  voices.find(v => v.lang.includes('en'));
           if (!voice) {
             console.warn('No Hindi voice available, falling back to default.');
             window.messages.push({
@@ -198,9 +204,9 @@
               window.renderMessages?.();
             }
             if (speechStates.has(messageId)) {
-              state.currentChunk++; // Retry next chunk
+              state.currentChunk++;
               speechStates.set(messageId, state);
-              speakNextChunk(); // Continue instead of stopping
+              speakNextChunk();
             }
           };
 
