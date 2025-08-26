@@ -150,14 +150,30 @@
       console.error(`Message not found for ID: ${messageId}`);
       return;
     }
-    const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
-    if (!messageDiv) {
-      console.error(`Message content div not found for ID: ${messageId}`);
+
+    // Ensure renderMessages is defined
+    if (typeof renderMessages !== 'function') {
+      console.error('Error: renderMessages function not available');
       return;
     }
 
-    messageDiv.innerHTML = '<div class="typing-placeholder min-h-[20px]"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
-    const placeholder = messageDiv.querySelector('.typing-placeholder');
+    // Wait for DOM to update
+    await new Promise(resolve => setTimeout(resolve, 100));
+    renderMessages(); // Ensure the message div is rendered
+
+    const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
+    if (!messageDiv) {
+      console.error(`Message content div not found for ID: ${messageId}, retrying render`);
+      renderMessages();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const retryDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
+      if (!retryDiv) {
+        console.error(`Retry failed: Message content div still not found for ID: ${messageId}`);
+        return;
+      }
+    }
+
+    messageDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
     let currentText = '';
     const charDelay = 50; // Milliseconds per character
     const totalDuration = text.length * charDelay / 1000; // Duration in seconds
@@ -170,7 +186,7 @@
 
     for (let i = 0; i < text.length; i++) {
       currentText += text[i];
-      placeholder.innerHTML = `<div>${formatMarkdown(currentText)}</div>`;
+      messageDiv.innerHTML = `<div>${formatMarkdown(currentText)}</div>`;
       message.text = currentText;
       await new Promise(resolve => setTimeout(resolve, charDelay));
     }
@@ -183,7 +199,7 @@
       replyButtons.className = 'quick-replies flex flex-wrap gap-2 mt-2';
       message.quickReplies.forEach(reply => {
         const btn = document.createElement('button');
-        btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm min-w-[120px] text-center';
+        btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm min-w-[120px] text-center';
         btn.textContent = reply;
         btn.addEventListener('click', () => handleQuickReply(reply));
         replyButtons.appendChild(btn);
@@ -269,6 +285,9 @@
       imageAlt: imageData?.alt,
       associatedQuery: message
     });
+
+    // Ensure renderMessages is called before typeMessage
+    renderMessages();
     await typeMessage(aiResponse, responseId, quickReplies);
 
     if (isAutoReplyEnabled) {
@@ -284,6 +303,7 @@
           isPinned: false,
           associatedQuery: null
         });
+        renderMessages();
         typeMessage(
           'LIC की योजनाओं, प्रीमियम, या दावों के बारे में और कोई प्रश्न? अधिक जानकारी के लिए Jitendra Patidar (Development Officer @LIC India, Neemuch Branch) से संपर्क करें: 7987235207',
           followUpId,
@@ -315,7 +335,7 @@
       : window.messages;
 
     if (filteredMessages.length === 0) {
-      chatMessages.innerHTML = `<div class="no-messages">${currentLang === 'hi' ? 'कोई संदेश नहीं मिला' : 'No messages found'}</div>`;
+      chatMessages.innerHTML = `<div class="no-messages text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]">${currentLang === 'hi' ? 'कोई संदेश नहीं मिला' : 'No messages found'}</div>`;
     }
 
     filteredMessages.sort((a, b) => {
@@ -330,7 +350,7 @@
       messageDiv.className = `message-container flex mb-2 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`;
       messageDiv.dataset.messageId = message.id;
       const bubbleDiv = document.createElement('div');
-      bubbleDiv.className = `relative max-w-[80%] p-3 rounded-lg ${message.sender === 'user' ? 'user-message' : 'ai-message'} ${message.isPinned ? 'border-2 border-yellow-500' : ''}`;
+      bubbleDiv.className = `relative max-w-[80%] p-3 rounded-lg ${message.sender === 'user' ? 'user-message bg-[var(--chat-user-light)] dark:bg-[var(--chat-user-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]' : 'ai-message bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]'} ${message.isPinned ? 'border-2 border-yellow-500' : ''}`;
       const messageContent = document.createElement('div');
       messageContent.className = 'message-content';
       messageContent.style.fontSize = `${fontSize}px`;
@@ -363,7 +383,7 @@
           replyButtons.className = 'quick-replies flex flex-wrap gap-2 mt-2';
           message.quickReplies.forEach(reply => {
             const btn = document.createElement('button');
-            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm min-w-[120px] text-center';
+            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm min-w-[120px] text-center';
             btn.textContent = reply;
             btn.addEventListener('click', () => handleQuickReply(reply));
             replyButtons.appendChild(btn);
@@ -520,7 +540,7 @@
         pinnedDiv.className = 'pinned-message bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] p-2 rounded-lg mb-2';
         pinnedDiv.innerHTML = `<p>${formatMarkdown(message.text)}</p>`;
         const unpinBtn = document.createElement('button');
-        unpinBtn.className = 'unpin-btn bg-[var(--chat-error)] text-white p-1 rounded-lg';
+        unpinBtn.className = 'unpin-btn bg-[var(--chat-error)] text-white p-[0.3rem] rounded-lg';
         unpinBtn.textContent = currentLang === 'hi' ? 'अनपिन करें' : 'Unpin';
         unpinBtn.addEventListener('click', () => togglePinMessage(message.id));
         pinnedDiv.appendChild(unpinBtn);
@@ -614,7 +634,7 @@
     if (suggestionsContainer) {
       filteredSuggestions = value.trim() ? suggestedPrompts[currentLang].filter(function(prompt) { return prompt.toLowerCase().includes(value.toLowerCase()); }) : suggestedPrompts[currentLang];
       suggestionsContainer.innerHTML = filteredSuggestions.map(function(prompt) {
-        return `<button class="suggestion-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm">${prompt}</button>`;
+        return `<button class="suggestion-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm">${prompt}</button>`;
       }).join('');
       suggestionsContainer.querySelectorAll('.suggestion-btn').forEach((btn, index) => {
         btn.addEventListener('click', () => handlePromptClick(filteredSuggestions[index]));
@@ -862,8 +882,8 @@
     confirmPopup.className = 'confirm-popup bg-[var(--chat-bg-light)] dark:bg-[var(--chat-bg-dark)] p-4 rounded-lg shadow-lg';
     confirmPopup.innerHTML = `
       <p class="text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)] mb-4">${currentLang === 'hi' ? 'क्या आप वाकई चैट इतिहास मिटाना चाहते हैं?' : 'Are you sure you want to clear the chat history?'}</p>
-      <button class="confirm-btn bg-[var(--chat-accent)] text-white p-2 rounded-lg mr-2">${currentLang === 'hi' ? 'हाँ' : 'Yes'}</button>
-      <button class="cancel-btn bg-[var(--chat-error)] text-white p-2 rounded-lg">${currentLang === 'hi' ? 'नहीं' : 'No'}</button>
+      <button class="confirm-btn bg-[var(--chat-accent)] text-white p-[0.3rem] rounded-lg mr-2">${currentLang === 'hi' ? 'हाँ' : 'Yes'}</button>
+      <button class="cancel-btn bg-[var(--chat-error)] text-white p-[0.3rem] rounded-lg">${currentLang === 'hi' ? 'नहीं' : 'No'}</button>
     `;
     document.getElementById('chatbot-container').appendChild(confirmPopup);
     const confirmBtn = confirmPopup.querySelector('.confirm-btn');
