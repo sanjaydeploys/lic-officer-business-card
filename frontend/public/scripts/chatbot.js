@@ -1,11 +1,9 @@
 (function() {
-  let currentLang = localStorage.getItem('chat-lang') || 'hi';
+  const currentLang = 'hi'; // Fixed to Hindi
   window.messages = JSON.parse(localStorage.getItem('lic-chat')) || [
     {
       sender: 'ai',
-      text: currentLang === 'hi' 
-        ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
-        : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
+      text: 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
@@ -19,9 +17,7 @@
       console.warn('Invalid localStorage data, resetting messages');
       window.messages = [{
         sender: 'ai',
-        text: currentLang === 'hi' 
-          ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
-          : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
+        text: 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"',
         id: 'welcome',
         timestamp: new Date().toISOString(),
         category: 'welcome',
@@ -34,9 +30,7 @@
     console.error('Error parsing localStorage:', e);
     window.messages = [{
       sender: 'ai',
-      text: currentLang === 'hi' 
-        ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
-        : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
+      text: 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
@@ -60,59 +54,34 @@
   let selectedCategory = '';
   let isPinnedWindowOpen = false;
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
-  const suggestedPrompts = {
-    en: [
-      'What is LIC Jeevan Anand plan?',
-      'How to pay LIC policy premium?',
-      'How to check policy status?',
-      'What is the best LIC plan?',
-      'How to file a claim with LIC?',
-      'What are LIC’s new plans?',
-      'What types of plans does LIC offer?',
-      'How to register an LIC policy?',
-      'How to make online payments for LIC?',
-      'What is LIC’s term insurance plan?',
-      'What are LIC’s pension plans?',
-      'How to check LIC maturity amount?',
-      'How to become an LIC agent?',
-      'What are LIC’s ULIP plans?',
-      'How to get a loan from LIC?',
-      'How to surrender an LIC policy?',
-      'How to change nominee in LIC?',
-      'What are LIC’s child plans?',
-      'What are LIC’s health insurance plans?',
-      'How to contact LIC customer service?'
-    ],
-    hi: [
-      'LIC जीवन आनंद योजना क्या है?',
-      'LIC पॉलिसी का प्रीमियम कैसे चुकाएं?',
-      'पॉलिसी की स्थिति कैसे जांचें?',
-      'LIC की सबसे अच्छी योजना कौन सी है?',
-      'LIC में क्लेम कैसे करें?',
-      'LIC की नई योजनाएं क्या हैं?',
-      'LIC में कितने प्रकार की योजनाएं हैं?',
-      'LIC पॉलिसी का रजिस्ट्रेशन कैसे करें?',
-      'LIC में ऑनलाइन पेमेंट कैसे करें?',
-      'LIC की टर्म इंश्योरेंस योजना क्या है?',
-      'LIC की पेंशन योजनाएं क्या हैं?',
-      'LIC में मेच्योरिटी अमाउंट कैसे चेक करें?',
-      'LIC एजेंट कैसे बनें?',
-      'LIC की यूलिप योजनाएं क्या हैं?',
-      'LIC में लोन कैसे लें?',
-      'LIC पॉलिसी को सरेंडर कैसे करें?',
-      'LIC में नॉमिनी कैसे बदलें?',
-      'LIC की चाइल्ड प्लान क्या हैं?',
-      'LIC की हेल्थ इंश्योरेंस योजनाएं क्या हैं?',
-      'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
-    ]
-  };
-  let filteredSuggestions = suggestedPrompts[currentLang];
+  const suggestedPrompts = [
+    'LIC जीवन आनंद योजना क्या है?',
+    'LIC पॉलिसी का प्रीमियम कैसे चुकाएं?',
+    'पॉलिसी की स्थिति कैसे जांचें?',
+    'LIC की सबसे अच्छी योजना कौन सी है?',
+    'LIC में क्लेम कैसे करें?',
+    'LIC की नई योजनाएं क्या हैं?',
+    'LIC में कितने प्रकार की योजनाएं हैं?',
+    'LIC पॉलिसी का रजिस्ट्रेशन कैसे करें?',
+    'LIC में ऑनलाइन पेमेंट कैसे करें?',
+    'LIC की टर्म इंश्योरेंस योजना क्या है?',
+    'LIC की पेंशन योजनाएं क्या हैं?',
+    'LIC में मेच्योरिटी अमाउंट कैसे चेक करें?',
+    'LIC एजेंट कैसे बनें?',
+    'LIC की यूलिप योजनाएं क्या हैं?',
+    'LIC में लोन कैसे लें?',
+    'LIC पॉलिसी को सरेंडर कैसे करें?',
+    'LIC में नॉमिनी कैसे बदलें?',
+    'LIC की चाइल्ड प्लान क्या हैं?',
+    'LIC की हेल्थ इंश्योरेंस योजनाएं क्या हैं?',
+    'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
+  ];
+  let filteredSuggestions = suggestedPrompts;
   const emojiOptions = ['👍', '😄', '🌟', '🙏', '👏'];
   const primaryApiKey = 'AIzaSyA6R5mEyZM7Vz61fisMnFaYedGptHv8B4I';
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
 
-  // Load LIC context from licContext.js
   function getContext() {
     return window.licContext?.hindiContext || 'LIC India context not available';
   }
@@ -151,15 +120,13 @@
       return;
     }
 
-    // Ensure renderMessages is defined
     if (typeof renderMessages !== 'function') {
       console.error('Error: renderMessages function not available');
       return;
     }
 
-    // Wait for DOM to update
     await new Promise(resolve => setTimeout(resolve, 100));
-    renderMessages(); // Ensure the message div is rendered
+    renderMessages();
 
     const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
     if (!messageDiv) {
@@ -175,8 +142,8 @@
 
     messageDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
     let currentText = '';
-    const charDelay = 50; // Milliseconds per character
-    const totalDuration = text.length * charDelay / 1000; // Duration in seconds
+    const charDelay = 50;
+    const totalDuration = text.length * charDelay / 1000;
 
     if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
       console.log(`Auto-speak triggered for message ID: ${messageId}, duration: ${totalDuration}s`);
@@ -286,7 +253,6 @@
       associatedQuery: message
     });
 
-    // Ensure renderMessages is called before typeMessage
     renderMessages();
     await typeMessage(aiResponse, responseId, quickReplies);
 
@@ -335,7 +301,7 @@
       : window.messages;
 
     if (filteredMessages.length === 0) {
-      chatMessages.innerHTML = `<div class="no-messages text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]">${currentLang === 'hi' ? 'कोई संदेश नहीं मिला' : 'No messages found'}</div>`;
+      chatMessages.innerHTML = `<div class="no-messages text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]">कोई संदेश नहीं मिला</div>`;
     }
 
     filteredMessages.sort((a, b) => {
@@ -359,8 +325,8 @@
         messageContent.innerHTML =
           '<div class="edit-message flex items-center gap-2">' +
             `<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]" value="${editedText.replace(/"/g, '&quot;')}">` +
-            '<button class="edit-message-button bg-[var(--chat-accent)] text-white p-[0.3rem] rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
-            '<button class="cancel-btn bg-[var(--chat-error)] text-white p-[0.3rem] rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
+            '<button class="edit-message-button bg-[var(--chat-accent)] text-white p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent-hover)] transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
+            '<button class="cancel-btn bg-[var(--chat-error)] text-white p-[0.5rem] rounded-lg hover:bg-[var(--chat-error-hover)] transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
           '</div>';
       } else {
         messageContent.innerHTML = formattedText;
@@ -375,7 +341,7 @@
         }
         if (message.reactions.length > 0) {
           messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + 
-            message.reactions.map(r => `<span class="reaction-tag bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] rounded-full px-2 py-1 text-[1rem] font-family-emoji">${r}</span>`).join('') + 
+            message.reactions.map(r => `<span class="reaction-tag bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] rounded-full px-2 py-1 text-[1rem] font-emoji">${r}</span>`).join('') + 
             '</div>';
         }
         if (message.quickReplies && message.quickReplies.length > 0) {
@@ -393,11 +359,11 @@
       }
       if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function') {
         const speakBtn = document.createElement('button');
-        speakBtn.className = 'speak-btn absolute top-2 right-2 p-[0.3rem] bg-transparent text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
+        speakBtn.className = 'speak-btn absolute top-2 right-2 p-[0.5rem] bg-[var(--chat-accent)] text-white rounded-full hover:bg-[var(--chat-accent-hover)] transition-colors shadow-md';
         speakBtn.setAttribute('aria-label', 'Play or pause message');
         speakBtn.innerHTML = message.isSpeaking
-          ? `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
-          : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z"></path></svg>`;
+          ? `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
+          : `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z"></path></svg>`;
         speakBtn.addEventListener('click', () => {
           window.speakMessage(message.id, message.text, currentLang);
           console.log(`Speech started for message ID: ${message.id}`);
@@ -408,8 +374,8 @@
       messageActions.className = 'message-actions flex justify-end gap-2 mt-2';
       if (message.sender === 'user') {
         const editBtn = document.createElement('button');
-        editBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
-        editBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
+        editBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white transition-colors';
+        editBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
         editBtn.addEventListener('click', function() { 
           startEditing(message.id, message.text); 
           console.log(`Edit button clicked for message ID: ${message.id}`);
@@ -417,22 +383,22 @@
         messageActions.appendChild(editBtn);
       }
       const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
-      deleteBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4"></path></svg>';
+      deleteBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white transition-colors';
+      deleteBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4"></path></svg>';
       deleteBtn.addEventListener('click', function() { deleteMessage(message.id); });
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
-      copyBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
+      copyBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white transition-colors';
+      copyBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
       copyBtn.addEventListener('click', function() { copyMessage(message.text); });
       const pinBtn = document.createElement('button');
-      pinBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
+      pinBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white transition-colors';
       pinBtn.innerHTML = message.isPinned 
-        ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' 
-        : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
+        ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' 
+        : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
       pinBtn.addEventListener('click', function() { togglePinMessage(message.id); });
       const reactionBtn = document.createElement('button');
-      reactionBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
-      reactionBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+      reactionBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white transition-colors';
+      reactionBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
       reactionBtn.addEventListener('click', function() { showReactionPicker(message.id, bubbleDiv); });
       messageActions.appendChild(deleteBtn);
       messageActions.appendChild(copyBtn);
@@ -458,36 +424,37 @@
     console.log(`Messages rendered: ${filteredMessages.length} messages`);
 
     if (editingMessageId) {
-      const observer = new MutationObserver((mutations, obs) => {
-        const editInput = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-input`);
-        if (editInput) {
-          console.log(`Edit input found for message ID: ${editingMessageId}`);
-          editInput.focus();
-          editInput.addEventListener('input', (e) => {
-            editedText = e.target.value;
-            console.log(`Edit input updated for message ID: ${editingMessageId}, text: ${editedText}`);
-          });
-          editInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') saveEditedMessage(editingMessageId);
-          });
-          const saveBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-button`);
-          if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
-              saveEditedMessage(editingMessageId);
-              console.log(`Save button clicked for message ID: ${editingMessageId}`);
-            });
+      const editInput = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-input`);
+      if (editInput) {
+        console.log(`Edit input found for message ID: ${editingMessageId}`);
+        editInput.focus();
+        editInput.addEventListener('input', (e) => {
+          editedText = e.target.value;
+          console.log(`Edit input updated for message ID: ${editingMessageId}, text: ${editedText}`);
+        }, { once: true });
+        editInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            saveEditedMessage(editingMessageId);
           }
-          const cancelBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .cancel-btn`);
-          if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => {
-              cancelEdit();
-              console.log(`Cancel button clicked for message ID: ${editingMessageId}`);
-            });
-          }
-          obs.disconnect();
+        }, { once: true });
+        const saveBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-button`);
+        if (saveBtn) {
+          saveBtn.addEventListener('click', () => {
+            saveEditedMessage(editingMessageId);
+            console.log(`Save button clicked for message ID: ${editingMessageId}`);
+          }, { once: true });
         }
-      });
-      observer.observe(chatMessages, { childList: true, subtree: true });
+        const cancelBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .cancel-btn`);
+        if (cancelBtn) {
+          cancelBtn.addEventListener('click', () => {
+            cancelEdit();
+            console.log(`Cancel button clicked for message ID: ${editingMessageId}`);
+          }, { once: true });
+        }
+      } else {
+        console.warn(`Edit input not found for message ID: ${editingMessageId}, retrying after delay`);
+        setTimeout(() => renderMessages(), 100);
+      }
     }
 
     updatePinnedMessagesWindow();
@@ -533,7 +500,7 @@
     const pinnedMessages = window.messages.filter(m => m.isPinned);
     if (pinnedMessages.length > 0) {
       const header = document.createElement('h3');
-      header.textContent = currentLang === 'hi' ? 'पिन किए गए संदेश' : 'Pinned Messages';
+      header.textContent = 'पिन किए गए संदेश';
       pinnedWindow.appendChild(header);
       pinnedMessages.forEach(message => {
         const pinnedDiv = document.createElement('div');
@@ -541,14 +508,14 @@
         pinnedDiv.innerHTML = `<p>${formatMarkdown(message.text)}</p>`;
         const unpinBtn = document.createElement('button');
         unpinBtn.className = 'unpin-btn bg-[var(--chat-error)] text-white p-[0.3rem] rounded-lg';
-        unpinBtn.textContent = currentLang === 'hi' ? 'अनपिन करें' : 'Unpin';
+        unpinBtn.textContent = 'अनपिन करें';
         unpinBtn.addEventListener('click', () => togglePinMessage(message.id));
         pinnedDiv.appendChild(unpinBtn);
         pinnedWindow.appendChild(pinnedDiv);
       });
     } else {
       const noPinned = document.createElement('p');
-      noPinned.textContent = currentLang === 'hi' ? 'कोई पिन किया गया संदेश नहीं' : 'No pinned messages';
+      noPinned.textContent = 'कोई पिन किया गया संदेश नहीं';
       pinnedWindow.appendChild(noPinned);
     }
     pinnedWindow.classList.toggle('active', isPinnedWindowOpen && pinnedMessages.length > 0);
@@ -588,15 +555,15 @@
         return { category: 'plans', imageKey };
       }
     }
-    if (lowerMessage.includes('service') || lowerMessage.includes('सेवा') || lowerMessage.includes('customer') || lowerMessage.includes('कस्टमर')) {
+    if (lowerMessage.includes('सेवा') || lowerMessage.includes('कस्टमर')) {
       return { category: 'services' };
-    } else if (lowerMessage.includes('plan') || lowerMessage.includes('policy') || lowerMessage.includes('insurance') || lowerMessage.includes('योजना') || lowerMessage.includes('पॉलिसी') || lowerMessage.includes('बीमा')) {
+    } else if (lowerMessage.includes('योजना') || lowerMessage.includes('पॉलिसी') || lowerMessage.includes('बीमा')) {
       return { category: 'plans' };
-    } else if (lowerMessage.includes('premium') || lowerMessage.includes('payment') || lowerMessage.includes('प्रीमियम') || lowerMessage.includes('भुगतान')) {
+    } else if (lowerMessage.includes('प्रीमियम') || lowerMessage.includes('भुगतान')) {
       return { category: 'premiums' };
-    } else if (lowerMessage.includes('claim') || lowerMessage.includes('क्लेम')) {
+    } else if (lowerMessage.includes('क्लेम')) {
       return { category: 'claims' };
-    } else if (lowerMessage.includes('contact') || lowerMessage.includes('support') || lowerMessage.includes('संपर्क') || lowerMessage.includes('सपोर्ट')) {
+    } else if (lowerMessage.includes('संपर्क') || lowerMessage.includes('सपोर्ट')) {
       return { category: 'contact' };
     } else {
       return { category: 'general' };
@@ -632,7 +599,7 @@
   function handleInputChange(value) {
     const suggestionsContainer = document.getElementById('chat-suggestions');
     if (suggestionsContainer) {
-      filteredSuggestions = value.trim() ? suggestedPrompts[currentLang].filter(function(prompt) { return prompt.toLowerCase().includes(value.toLowerCase()); }) : suggestedPrompts[currentLang];
+      filteredSuggestions = value.trim() ? suggestedPrompts.filter(function(prompt) { return prompt.toLowerCase().includes(value.toLowerCase()); }) : suggestedPrompts;
       suggestionsContainer.innerHTML = filteredSuggestions.map(function(prompt) {
         return `<button class="suggestion-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm">${prompt}</button>`;
       }).join('');
@@ -651,11 +618,12 @@
       return;
     }
     const picker = document.createElement('div');
-    picker.className = 'reaction-picker absolute bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-2 flex gap-2 z-10 max-w-full font-family-emoji';
+    picker.className = 'reaction-picker absolute bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-2 flex gap-2 z-10 max-w-full font-emoji';
     emojiOptions.forEach(emoji => {
       const btn = document.createElement('button');
       btn.textContent = emoji;
-      btn.className = 'reaction-picker-item text-[1rem] p-1 hover:bg-[var(--chat-accent)] rounded';
+      btn.className = 'reaction-picker-item text-[1.2rem] p-1 hover:bg-[var(--chat-accent)] rounded';
+      btn.style.fontFamily = '"Noto Color Emoji", sans-serif';
       btn.addEventListener('click', function() { 
         addReaction(messageId, emoji); 
         picker.remove(); 
@@ -697,6 +665,10 @@
   }
 
   function startEditing(id, text) {
+    if (editingMessageId) {
+      console.warn(`Already editing message ID: ${editingMessageId}, cancelling previous edit`);
+      cancelEdit();
+    }
     editingMessageId = id;
     editedText = text;
     renderMessages();
@@ -722,9 +694,7 @@
       processMessage(editedText, newMessageId);
       console.log(`Message saved for ID: ${newMessageId}, text: ${editedText}`);
     } else {
-      editingMessageId = null;
-      editedText = '';
-      renderMessages();
+      cancelEdit();
       console.log('Edit cancelled due to empty text');
     }
   }
@@ -741,9 +711,7 @@
     if (window.messages.length === 0) {
       window.messages.push({
         sender: 'ai',
-        text: currentLang === 'hi' 
-          ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
-          : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
+        text: 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"',
         id: 'welcome',
         timestamp: new Date().toISOString(),
         category: 'welcome',
@@ -758,9 +726,9 @@
 
   function copyMessage(text) {
     navigator.clipboard.writeText(text).then(function() {
-      alert(currentLang === 'hi' ? 'संदेश कॉपी किया गया!' : 'Message copied!');
+      alert('संदेश कॉपी किया गया!');
     }).catch(function() {
-      alert(currentLang === 'hi' ? 'कॉपी करने में असफल!' : 'Failed to copy!');
+      alert('कॉपी करने में असफल!');
     });
   }
 
@@ -780,14 +748,8 @@
   function toggleControls() {
     const controls = document.getElementById('chat-controls');
     if (controls) {
-      controls.classList.toggle('hidden');
-      const toggleBtn = document.querySelector('.controls-toggle');
-      if (toggleBtn) {
-        toggleBtn.innerHTML = controls.classList.contains('hidden')
-          ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>'
-          : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-        console.log(`Controls toggled: hidden=${controls.classList.contains('hidden')}`);
-      }
+      controls.classList.remove('hidden'); // Always keep controls visible
+      console.log('Controls are always visible by default');
     } else {
       console.error('Error: #chat-controls not found');
     }
@@ -829,7 +791,7 @@
     isHistoryCollapsed = !isHistoryCollapsed;
     const historyBtn = document.querySelector('.history-btn');
     if (historyBtn) {
-      historyBtn.textContent = isHistoryCollapsed ? (currentLang === 'hi' ? 'इतिहास दिखाएं' : 'Show History') : (currentLang === 'hi' ? 'इतिहास छिपाएं' : 'Hide History');
+      historyBtn.textContent = isHistoryCollapsed ? 'इतिहास दिखाएं' : 'इतिहास छिपाएं';
       console.log(`History toggled: isHistoryCollapsed=${isHistoryCollapsed}`);
     }
     const chatMessages = document.getElementById('chat-messages');
@@ -843,7 +805,7 @@
     isAutoReplyEnabled = !isAutoReplyEnabled;
     const autoReplyBtn = document.querySelector('.auto-reply-btn');
     if (autoReplyBtn) {
-      autoReplyBtn.textContent = isAutoReplyEnabled ? (currentLang === 'hi' ? 'ऑटो-रिप्लाई: चालू' : 'Auto-Reply: On') : (currentLang === 'hi' ? 'ऑटो-रिप्लाई: बंद' : 'Auto-Reply: Off');
+      autoReplyBtn.textContent = isAutoReplyEnabled ? 'ऑटो-रिप्लाई: चालू' : 'ऑटो-रिप्लाई: बंद';
       console.log(`Auto-reply toggled: isAutoReplyEnabled=${isAutoReplyEnabled}`);
     }
   }
@@ -852,7 +814,7 @@
     isAutoSpeakEnabled = !isAutoSpeakEnabled;
     const autoSpeakBtn = document.querySelector('.auto-speak-btn');
     if (autoSpeakBtn) {
-      autoSpeakBtn.textContent = isAutoSpeakEnabled ? (currentLang === 'hi' ? 'ऑटो-स्पीक: चालू' : 'Auto-Speak: On') : (currentLang === 'hi' ? 'ऑटो-स्पीक: बंद' : 'Auto-Speak: Off');
+      autoSpeakBtn.textContent = isAutoSpeakEnabled ? 'ऑटो-स्पीक: चालू' : 'ऑटो-स्पीक: बंद';
       console.log(`Auto-speak toggled: isAutoSpeakEnabled=${isAutoSpeakEnabled}`);
     }
   }
@@ -861,7 +823,7 @@
     showTimestamps = !showTimestamps;
     const timestampBtn = document.querySelector('.timestamp-btn');
     if (timestampBtn) {
-      timestampBtn.textContent = showTimestamps ? (currentLang === 'hi' ? 'टाइमस्टैम्प छिपाएं' : 'Hide Timestamps') : (currentLang === 'hi' ? 'टाइमस्टैम्प दिखाएं' : 'Show Timestamps');
+      timestampBtn.textContent = showTimestamps ? 'टाइमस्टैम्प छिपाएं' : 'टाइमस्टैम्प दिखाएं';
       console.log(`Timestamps toggled: showTimestamps=${showTimestamps}`);
     }
     renderMessages();
@@ -881,9 +843,9 @@
     const confirmPopup = document.createElement('div');
     confirmPopup.className = 'confirm-popup bg-[var(--chat-bg-light)] dark:bg-[var(--chat-bg-dark)] p-4 rounded-lg shadow-lg';
     confirmPopup.innerHTML = `
-      <p class="text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)] mb-4">${currentLang === 'hi' ? 'क्या आप वाकई चैट इतिहास मिटाना चाहते हैं?' : 'Are you sure you want to clear the chat history?'}</p>
-      <button class="confirm-btn bg-[var(--chat-accent)] text-white p-[0.3rem] rounded-lg mr-2">${currentLang === 'hi' ? 'हाँ' : 'Yes'}</button>
-      <button class="cancel-btn bg-[var(--chat-error)] text-white p-[0.3rem] rounded-lg">${currentLang === 'hi' ? 'नहीं' : 'No'}</button>
+      <p class="text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)] mb-4">क्या आप वाकई चैट इतिहास मिटाना चाहते हैं?</p>
+      <button class="confirm-btn bg-[var(--chat-accent)] text-white p-[0.3rem] rounded-lg mr-2">हाँ</button>
+      <button class="cancel-btn bg-[var(--chat-error)] text-white p-[0.3rem] rounded-lg">नहीं</button>
     `;
     document.getElementById('chatbot-container').appendChild(confirmPopup);
     const confirmBtn = confirmPopup.querySelector('.confirm-btn');
@@ -895,9 +857,7 @@
   function clearChat() {
     window.messages = [{
       sender: 'ai',
-      text: currentLang === 'hi' 
-        ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
-        : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
+      text: 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
@@ -912,13 +872,13 @@
 
   function toggleRecording() {
     if (!recognition) {
-      alert(currentLang === 'hi' ? 'क्षमा करें, आपके ब्राउज़र में वॉइस इनपुट समर्थित नहीं है।' : 'Sorry, voice input is not supported in your browser.');
+      alert('क्षमा करें, आपके ब्राउज़र में वॉइस इनपुट समर्थित नहीं है।');
       return;
     }
     if (isRecording) {
       recognition.stop();
     } else {
-      recognition.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
+      recognition.lang = 'hi-IN';
       recognition.start();
       isRecording = true;
       const voiceBtn = document.querySelector('.voice-btn');
@@ -962,7 +922,7 @@
       isRecording = false;
       const voiceBtn = document.querySelector('.voice-btn');
       if (voiceBtn) voiceBtn.classList.remove('recording');
-      alert(currentLang === 'hi' ? 'वॉइस रिकग्निशन में त्रुटि: ' + event.error : 'Voice recognition error: ' + event.error);
+      alert('वॉइस रिकग्निशन में त्रुटि: ' + event.error);
     };
   }
 
@@ -1016,36 +976,6 @@
       console.error('Error: .theme-btn not found');
     }
 
-    const langToggle = document.querySelector('.lang-toggle');
-    if (langToggle) {
-      langToggle.addEventListener('click', function() {
-        currentLang = currentLang === 'en' ? 'hi' : 'en';
-        localStorage.setItem('chat-lang', currentLang);
-        document.getElementById('chatbot-container').setAttribute('lang', currentLang);
-        langToggle.setAttribute('data-lang', currentLang === 'en' ? 'hi' : 'en');
-        const chatInput = document.getElementById('chat-input');
-        if (chatInput) {
-          chatInput.placeholder = currentLang === 'hi' ? chatInput.dataset.placeholderHi : 'Ask about LIC plans or services...';
-        }
-        const searchBar = document.getElementById('search-bar');
-        if (searchBar) {
-          searchBar.placeholder = currentLang === 'hi' ? searchBar.dataset.placeholderHi : 'Search Messages';
-        }
-        const welcomeMsg = window.messages.find(m => m.id === 'welcome');
-        if (welcomeMsg) {
-          welcomeMsg.text = currentLang === 'hi' 
-            ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
-            : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"';
-          localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-        }
-        handleInputChange(document.getElementById('chat-input').value);
-        filteredSuggestions = suggestedPrompts[currentLang];
-        renderMessages();
-        if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech();
-        console.log(`Language toggled to: ${currentLang}`);
-      });
-    }
-
     const searchBar = document.getElementById('search-bar');
     if (searchBar) searchBar.addEventListener('input', (e) => searchMessages(e.target.value));
 
@@ -1060,22 +990,6 @@
 
     const timestampBtn = document.querySelector('.timestamp-btn');
     if (timestampBtn) timestampBtn.addEventListener('click', toggleTimestamps);
-
-    const volumeControl = document.getElementById('volume-control');
-    if (volumeControl) volumeControl.addEventListener('input', function(e) {
-      if (typeof window.setSpeechVolume === 'function') {
-        window.setSpeechVolume(e.target.value);
-        console.log(`Volume set to: ${e.target.value}`);
-      }
-    });
-
-    const rateControl = document.getElementById('rate-control');
-    if (rateControl) rateControl.addEventListener('input', function(e) {
-      if (typeof window.setSpeechRate === 'function') {
-        window.setSpeechRate(e.target.value);
-        console.log(`Speech rate set to: ${e.target.value}`);
-      }
-    });
 
     document.querySelectorAll('.font-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1105,6 +1019,7 @@
     if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
     adjustFontSize(0);
+    toggleControls(); // Ensure controls are visible by default
     console.log('DOM loaded, chatbot initialized');
   });
 })();
