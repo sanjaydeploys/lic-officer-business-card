@@ -4,8 +4,8 @@
     {
       sender: 'ai',
       text: currentLang === 'hi' 
-        ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
-        : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
+        ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
+        : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
@@ -20,8 +20,8 @@
       window.messages = [{
         sender: 'ai',
         text: currentLang === 'hi' 
-          ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
-          : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
+          ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
+          : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
         id: 'welcome',
         timestamp: new Date().toISOString(),
         category: 'welcome',
@@ -35,8 +35,8 @@
     window.messages = [{
       sender: 'ai',
       text: currentLang === 'hi' 
-        ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
-        : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
+        ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
+        : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
@@ -63,99 +63,107 @@
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
   const suggestedPrompts = {
     en: [
-      'What are LIC Neemuch’s services?',
-      'Tell me about life insurance plans.',
-      'How can I pay my LIC premium online?',
-      'What is the LIC digital platform?',
-      'How to file an insurance claim with LIC?',
-      'What are the benefits of LIC policies?',
-      'Explain LIC’s term insurance plans.',
-      'How does LIC’s customer support work?',
-      'What documents are needed for LIC policies?',
-      'Tell me about LIC’s investment plans.'
+      'What is LIC Jeevan Anand plan?',
+      'How to pay LIC policy premium?',
+      'How to check policy status?',
+      'What is the best LIC plan?',
+      'How to file a claim with LIC?',
+      'What are LIC’s new plans?',
+      'What types of plans does LIC offer?',
+      'How to register an LIC policy?',
+      'How to make online payments for LIC?',
+      'What is LIC’s term insurance plan?',
+      'What are LIC’s pension plans?',
+      'How to check LIC maturity amount?',
+      'How to become an LIC agent?',
+      'What are LIC’s ULIP plans?',
+      'How to get a loan from LIC?',
+      'How to surrender an LIC policy?',
+      'How to change nominee in LIC?',
+      'What are LIC’s child plans?',
+      'What are LIC’s health insurance plans?',
+      'How to contact LIC customer service?'
     ],
     hi: [
-      'LIC नीमच की सेवाएँ क्या हैं?',
-      'जीवन बीमा योजनाओं के बारे में बताएं।',
-      'मैं LIC प्रीमियम ऑनलाइन कैसे भर सकता हूँ?',
-      'LIC का डिजिटल प्लेटफॉर्म क्या है?',
-      'LIC के साथ बीमा क्लेम कैसे फाइल करें?',
-      'LIC पॉलिसियों के लाभ क्या हैं?',
-      'LIC की टर्म इंश्योरेंस योजनाएँ समझाएँ।',
-      'LIC का कस्टमर सपोर्ट कैसे काम करता है?',
-      'LIC पॉलिसी के लिए कौन से दस्तावेज़ चाहिए?',
-      'LIC की निवेश योजनाओं के बारे में बताएं।'
+      'LIC जीवन आनंद योजना क्या है?',
+      'LIC पॉलिसी का प्रीमियम कैसे चुकाएं?',
+      'पॉलिसी की स्थिति कैसे जांचें?',
+      'LIC की सबसे अच्छी योजना कौन सी है?',
+      'LIC में क्लेम कैसे करें?',
+      'LIC की नई योजनाएं क्या हैं?',
+      'LIC में कितने प्रकार की योजनाएं हैं?',
+      'LIC पॉलिसी का रजिस्ट्रेशन कैसे करें?',
+      'LIC में ऑनलाइन पेमेंट कैसे करें?',
+      'LIC की टर्म इंश्योरेंस योजना क्या है?',
+      'LIC की पेंशन योजनाएं क्या हैं?',
+      'LIC में मेच्योरिटी अमाउंट कैसे चेक करें?',
+      'LIC एजेंट कैसे बनें?',
+      'LIC की यूलिप योजनाएं क्या हैं?',
+      'LIC में लोन कैसे लें?',
+      'LIC पॉलिसी को सरेंडर कैसे करें?',
+      'LIC में नॉमिनी कैसे बदलें?',
+      'LIC की चाइल्ड प्लान क्या हैं?',
+      'LIC की हेल्थ इंश्योरेंस योजनाएं क्या हैं?',
+      'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
     ]
   };
   let filteredSuggestions = suggestedPrompts[currentLang];
-  const emojiOptions = ['👍', '😄', '💼', '📜', '👏'];
+  const emojiOptions = ['👍', '😄', '🌟', '🙏', '👏'];
   const primaryApiKey = 'AIzaSyA6R5mEyZM7Vz61fisMnFaYedGptHv8B4I';
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
-  const imageContext = {
-    "lic-office": {
-      urls: [
-        {
-          url: "https://mys3resources.s3.ap-south-1.amazonaws.com/chatbot_images/lic-office-neemuch.jpg",
-          alt: "LIC Neemuch office exterior, showcasing its digital transformation"
-        }
-      ],
-      keywords: ["lic office", "neemuch office", "digital platform", "lic digital", "एलआईसी कार्यालय", "नीमच कार्यालय", "डिजिटल प्लेटफॉर्म"]
-    },
-    "lic-services": {
-      urls: [
-        {
-          url: "https://mys3resources.s3.ap-south-1.amazonaws.com/chatbot_images/lic-services-portal.jpg",
-          alt: "LIC Neemuch digital services portal interface"
-        }
-      ],
-      keywords: ["services", "digital services", "online portal", "lic portal", "सेवाएँ", "डिजिटल सेवाएँ", "ऑनलाइन पोर्टल"]
-    }
-  };
-  const licContext = `
-**LIC Neemuch Digital Platform Overview**:
-- **Background**: The Life Insurance Corporation (LIC) office in Neemuch, a 60-year-old government institution, lacked a digital presence, relying on pamphlets and WhatsApp forwards for outreach. Sanjay Patidar developed a serverless platform to digitize operations.
-- **Solution**: Built with React, Tailwind CSS, Vite, React Helmet (frontend); AWS Lambda, API Gateway, MongoDB Atlas (backend); AWS S3, CloudFront, SSL via ACM, Cloudflare DNS (infrastructure); and CloudWatch Logs (monitoring).
-- **Outcomes**: Achieved 100/100 Lighthouse score, ranked pages within days via SEO (React Helmet, pre-rendering), and increased inquiry submissions by 3x in two months.
-- **Services**: Online premium payments, policy inquiries, claim filing, and customer support through a responsive web interface.
-- **Key Features**: Mobile-first design, SEO-optimized pages, secure payment gateway integration, and real-time policy status updates.
-- **Contact**: Email: lic.neemuch.support@gmail.com | Phone: +91-7423-XXXXXX
-  `;
-  const hindiLicContext = `
-**LIC नीमच डिजिटल प्लेटफॉर्म अवलोकन**:
-- **पृष्ठभूमि**: नीमच का जीवन बीमा निगम (LIC) कार्यालय, एक 60 साल पुरानी सरकारी संस्था, के पास कोई डिजिटल उपस्थिति नहीं थी, जो प्रचार के लिए पैंफलेट और व्हाट्सएप फॉरवर्ड पर निर्भर थी। संजय पाटीदार ने संचालन को डिजिटाइज़ करने के लिए एक सर्वरलेस प्लेटफॉर्म विकसित किया।
-- **समाधान**: React, Tailwind CSS, Vite, React Helmet (फ्रंटएंड); AWS Lambda, API Gateway, MongoDB Atlas (बैकएंड); AWS S3, CloudFront, SSL via ACM, Cloudflare DNS (इंफ्रास्ट्रक्चर); और CloudWatch Logs (मॉनिटरिंग) के साथ बनाया गया।
-- **परिणाम**: 100/100 लाइटहाउस स्कोर प्राप्त किया, SEO (React Helmet, प्री-रेंडरिंग) के माध्यम से कुछ दिनों में पेज रैंकिंग, और दो महीनों में पूछताछ 3 गुना बढ़ी।
-- **सेवाएँ**: ऑनलाइन प्रीमियम भुगतान, पॉलिसी पूछताछ, क्लेम फाइलिंग, और एक रिस्पॉन्सिव वेब इंटरफेस के माध्यम से कस्टमर सपोर्ट।
-- **मुख्य विशेषताएँ**: मोबाइल-फर्स्ट डिज़ाइन, SEO-अनुकूलित पेज, सुरक्षित पेमेंट गेटवे एकीकरण, और रियल-टाइम पॉलिसी स्टेटस अपडेट।
-- **संपर्क**: ईमेल: lic.neemuch.support@gmail.com | फोन: +91-7423-XXXXXX
-  `;
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
 
+  // Load LIC context from licContext.js
   function getContext() {
-    return currentLang === 'hi' ? hindiLicContext : licContext;
+    return window.licContext?.hindiContext || 'LIC India context not available';
   }
 
-  function showTonePicker(message, messageId) {
-    const tonePromptText = currentLang === 'hi' ? 'आप कौन सा लहजा सुनना चाहेंगे?' : 'Which tone would you like to hear?';
-    const tonePromptId = Date.now();
-    pendingMessage = message;
-    pendingMessageId = messageId;
-    window.messages.push({
-      sender: 'ai',
-      text: tonePromptText,
-      id: tonePromptId,
-      timestamp: new Date().toISOString(),
-      category: 'tone_prompt',
-      reactions: [],
-      isPinned: false
-    });
-    renderMessages();
-    if (typeof window.speakMessage === 'function') {
-      window.speakMessage(tonePromptId, tonePromptText, currentLang);
+  function getImageContext() {
+    return window.licContext?.imageContext || {};
+  }
+
+  async function performWebSearch(query) {
+    try {
+      const response = await fetch(`https://www.googleapis.com/customsearch/v1?key=${primaryApiKey}&cx=017576662512468239146:omuauf_lfve&q=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error('Search API failed');
+      const data = await response.json();
+      return data.items?.[0]?.snippet || null;
+    } catch (error) {
+      console.error('Web search error:', error);
+      return null;
     }
   }
 
-  async function processMessageWithTone(message, messageId, tone) {
+  function isImageRelevant(message, keywords) {
+    return keywords.some(keyword => message.toLowerCase().includes(keyword.toLowerCase()));
+  }
+
+  function formatResponse(text) {
+    return text
+      .replace(/(\n\s*[-*]\s+)/g, '\n- ') // Ensure consistent bullet points
+      .replace(/(\n- .+)+/g, match => match.replace(/\n/g, '\n')); // Preserve newlines in lists
+  }
+
+  async function typeMessage(text, messageId, quickReplies) {
+    const message = window.messages.find(m => m.id === messageId);
+    if (!message) return;
+    message.text = '';
+    renderMessages();
+    for (let i = 0; i < text.length; i++) {
+      message.text += text[i];
+      renderMessages();
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    message.quickReplies = quickReplies;
+    renderMessages();
+    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
+      window.speakMessage(messageId, text, currentLang);
+      interactionAnalytics.speechUsed++;
+    }
+  }
+
+  async function processMessage(message, messageId) {
+    if (isLoading) return;
     isLoading = true;
     interactionAnalytics.questionsAsked++;
     const { category, imageKey } = categorizeMessage(message);
@@ -163,10 +171,8 @@
 
     let aiResponse;
     let quickReplies = [];
-    const toneInstruction = tone === 'funny'
-      ? 'Respond in a funny, engaging, and heartfelt tone suitable for an Indian audience. Use culturally relevant, non-technical humor (e.g., references to local culture or insurance scenarios). Avoid tech jargon (e.g., serverless, API) and movie references (e.g., Bollywood). Keep it family-friendly and relatable.'
-      : 'Respond in a professional, concise, and informative tone suitable for customers seeking insurance information. Focus on LIC Neemuch’s services, plans, or digital platform.';
-    const fullPrompt = `You are an AI assistant for LIC Neemuch's digital platform. ${toneInstruction} Use the following context to answer questions about LIC Neemuch's services, plans, or digital platform. For general insurance questions, provide accurate answers based on standard LIC offerings. Context: ${getContext()}\n\nUser question: ${message}\n\nProvide a clear response in ${currentLang === 'hi' ? 'Hindi' : 'English'}.`;
+    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. For lists or comparisons (e.g., policy details, benefits), structure responses as bullet points with each item on a new line for clarity. Ensure answers are culturally sensitive and family-friendly.';
+    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services, combining all available information. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
 
     async function tryApiRequest(apiKey) {
       try {
@@ -177,7 +183,7 @@
         });
         if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
         const data = await response.json();
-        return data.candidates[0].content.parts[0].text;
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
       } catch (error) {
         console.error('API error with key:', apiKey, error.message);
         return null;
@@ -191,30 +197,34 @@
         aiResponse = await tryApiRequest(fallbackApiKey);
       }
       if (!aiResponse || aiResponse.includes('I don\'t have enough information')) {
-        aiResponse = currentLang === 'hi' 
-          ? 'क्षमा करें, मुझे विशिष्ट जानकारी नहीं मिली। LIC नीमच की सेवाओं, योजनाओं, या डिजिटल प्लेटफॉर्म के बारे में पूछें!'
-          : 'Sorry, I couldn\'t find specific information. Try asking about LIC Neemuch’s services, plans, or digital platform!';
+        const searchResults = await performWebSearch(message);
+        aiResponse = searchResults || 'क्षमा करें, मुझे विशिष्ट जानकारी नहीं मिली। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें!';
       }
-      quickReplies = currentLang === 'hi'
-        ? ['प्रीमियम भुगतान कैसे करें?', 'क्लेम प्रक्रिया क्या है?', 'LIC नीमच से संपर्क कैसे करें?']
-        : ['How to pay premiums?', 'What is the claim process?', 'How to contact LIC Neemuch?'];
+      aiResponse = formatResponse(aiResponse);
+      quickReplies = [
+        'इस पर और विस्तार से बताएं?',
+        'LIC की अन्य योजनाएं क्या हैं?',
+        'मुझे LIC कस्टमर केयर से कैसे संपर्क करना चाहिए?'
+      ];
     } catch (error) {
       console.error('Both API requests failed:', error.message);
-      aiResponse = currentLang === 'hi' 
-        ? 'कुछ गड़बड़ हो गई। कृपया फिर से प्रयास करें या LIC नीमच की सेवाओं, योजनाओं, या डिजिटल प्लेटफॉर्म के बारे में पूछें!'
-        : 'Something went wrong. Please try again or ask about LIC Neemuch’s services, plans, or digital platform!';
-      quickReplies = currentLang === 'hi'
-        ? ['दूसरा प्रश्न पूछें', 'LIC की योजनाएँ बताएँ', 'डिजिटल प्लेटफॉर्म की जानकारी दें']
-        : ['Try another question', 'Tell me about LIC plans', 'Explain the digital platform'];
+      const searchResults = await performWebSearch(message);
+      aiResponse = formatResponse(searchResults || 'कुछ गड़बड़ हो गई। कृपया फिर से प्रयास करें या LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें!');
+      quickReplies = [
+        'दूसरा प्रश्न पूछें',
+        'LIC की योजनाएं बताएं',
+        'LIC कस्टमर केयर का नंबर क्या है?'
+      ];
     }
 
     const responseId = Date.now();
-    const imageData = imageKey && imageContext[imageKey] && tone === 'funny'
+    const imageContext = getImageContext();
+    const imageData = imageKey && imageContext[imageKey] && isImageRelevant(message, imageContext[imageKey].keywords)
       ? imageContext[imageKey].urls[Math.floor(Math.random() * imageContext[imageKey].urls.length)]
       : null;
     window.messages.push({
       sender: 'ai',
-      text: aiResponse,
+      text: '',
       id: responseId,
       timestamp: new Date().toISOString(),
       category: category,
@@ -222,30 +232,32 @@
       isPinned: false,
       imageUrl: imageData?.url,
       imageAlt: imageData?.alt,
-      quickReplies: quickReplies
+      associatedQuery: message
     });
-    renderMessages();
-    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
-      window.speakMessage(responseId, aiResponse, currentLang);
-      interactionAnalytics.speechUsed++;
-    }
+    await typeMessage(aiResponse, responseId, quickReplies);
 
     if (isAutoReplyEnabled) {
-      setTimeout(function() {
+      setTimeout(() => {
         const followUpId = Date.now() + 1;
         window.messages.push({
           sender: 'ai',
-          text: currentLang === 'hi' ? 'LIC नीमच की सेवाओं, योजनाओं, या डिजिटल प्लेटफॉर्म के बारे में और कोई प्रश्न हैं?' : 'Do you have any more questions about LIC Neemuch’s services, plans, or digital platform?',
+          text: '',
           id: followUpId,
           timestamp: new Date().toISOString(),
           category: 'follow-up',
           reactions: [],
           isPinned: false,
-          quickReplies: currentLang === 'hi'
-            ? ['प्रीमियम भुगतान कैसे करें?', 'क्लेम प्रक्रिया क्या है?', 'LIC नीमच से संपर्क कैसे करें?']
-            : ['How to pay premiums?', 'What is the claim process?', 'How to contact LIC Neemuch?']
+          associatedQuery: null
         });
-        renderMessages();
+        typeMessage(
+          'LIC की योजनाओं, प्रीमियम, या दावों के बारे में और कोई प्रश्न? अधिक जानकारी के लिए Jitendra Patidar (Development Officer @LIC India, Neemuch Branch) से संपर्क करें: 7987235207',
+          followUpId,
+          [
+            'LIC की सबसे अच्छी योजना कौन सी है?',
+            'LIC में क्लेम कैसे करें?',
+            'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
+          ]
+        );
       }, 2000);
     }
 
@@ -261,7 +273,7 @@
     }
     chatMessages.innerHTML = '';
     const filteredMessages = searchQuery
-      ? window.messages.filter(m => m.text.toLowerCase().includes(searchQuery.toLowerCase()))
+      ? window.messages.filter(m => m.text.toLowerCase().includes(searchQuery.toLowerCase()) || (m.associatedQuery && m.associatedQuery.toLowerCase().includes(searchQuery.toLowerCase())))
       : selectedCategory
       ? window.messages.filter(m => m.category === selectedCategory)
       : window.messages;
@@ -297,7 +309,7 @@
       } else {
         messageContent.innerHTML = formattedText;
         if (message.imageUrl) {
-          messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'Image related to LIC Neemuch'}" class="message-image" loading="lazy">`;
+          messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'Image related to LIC India'}" class="message-image" loading="lazy">`;
         }
         if (showTimestamps) {
           const timeSpan = document.createElement('span');
@@ -307,25 +319,6 @@
         }
         if (message.reactions.length > 0) {
           messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + message.reactions.map(r => `<span class="reaction-tag bg-[#F5F5F5] dark:bg-[#2A3942] rounded-full px-2 py-1 text-sm">${r}</span>`).join('') + '</div>';
-        }
-        if (message.category === 'tone_prompt') {
-          const toneButtons = document.createElement('div');
-          toneButtons.className = 'tone-buttons flex gap-2 mt-2';
-          toneButtons.innerHTML = `
-            <button class="tone-btn funny-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm">${currentLang === 'hi' ? 'मज़ेदार' : 'Funny'}</button>
-            <button class="tone-btn professional-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm">${currentLang === 'hi' ? 'पेशेवर' : 'Professional'}</button>
-          `;
-          messageContent.appendChild(toneButtons);
-          toneButtons.querySelector('.funny-btn').addEventListener('click', () => {
-            window.messages = window.messages.filter(m => m.id !== message.id);
-            processMessageWithTone(pendingMessage, pendingMessageId, 'funny');
-            renderMessages();
-          });
-          toneButtons.querySelector('.professional-btn').addEventListener('click', () => {
-            window.messages = window.messages.filter(m => m.id !== message.id);
-            processMessageWithTone(pendingMessage, pendingMessageId, 'professional');
-            renderMessages();
-          });
         }
         if (message.quickReplies && message.quickReplies.length > 0) {
           const replyButtons = document.createElement('div');
@@ -340,7 +333,7 @@
           messageContent.appendChild(replyButtons);
         }
       }
-      if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function' && message.category !== 'tone_prompt') {
+      if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function') {
         const speakBtn = document.createElement('button');
         speakBtn.className = 'speak-btn';
         speakBtn.setAttribute('aria-label', 'Play or pause message');
@@ -462,17 +455,18 @@
     window.messages.push({ sender: 'user', text: message, id: messageId, timestamp: new Date().toISOString(), category: categorizeMessage(message).category, reactions: [], isPinned: false });
     input.value = '';
     renderMessages();
-    showTonePicker(message, messageId);
+    await processMessage(message, messageId);
   }
 
   function categorizeMessage(message) {
     const lowerMessage = message.toLowerCase();
+    const imageContext = getImageContext();
     for (const [imageKey, { keywords }] of Object.entries(imageContext)) {
-      if (keywords.some(keyword => lowerMessage.includes(keyword))) {
-        return { category: 'services', imageKey };
+      if (keywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()))) {
+        return { category: 'plans', imageKey };
       }
     }
-    if (lowerMessage.includes('service') || lowerMessage.includes('सेवा') || lowerMessage.includes('digital') || lowerMessage.includes('डिजिटल') || lowerMessage.includes('platform') || lowerMessage.includes('प्लेटफॉर्म')) {
+    if (lowerMessage.includes('service') || lowerMessage.includes('सेवा') || lowerMessage.includes('customer') || lowerMessage.includes('कस्टमर')) {
       return { category: 'services' };
     } else if (lowerMessage.includes('plan') || lowerMessage.includes('policy') || lowerMessage.includes('insurance') || lowerMessage.includes('योजना') || lowerMessage.includes('पॉलिसी') || lowerMessage.includes('बीमा')) {
       return { category: 'plans' };
@@ -593,7 +587,7 @@
       editingMessageId = null;
       editedText = '';
       renderMessages();
-      showTonePicker(editedText, newMessageId); // Treat as new query
+      processMessage(editedText, newMessageId); // Process as new message
     } else {
       editingMessageId = null;
       editedText = '';
@@ -613,8 +607,8 @@
       window.messages.push({
         sender: 'ai',
         text: currentLang === 'hi' 
-          ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
-          : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
+          ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
+          : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
         id: 'welcome',
         timestamp: new Date().toISOString(),
         category: 'welcome',
@@ -744,8 +738,8 @@
     window.messages = [{
       sender: 'ai',
       text: currentLang === 'hi' 
-        ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
-        : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
+        ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
+        : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
@@ -785,7 +779,7 @@
         const messageId = Date.now();
         window.messages.push({ sender: 'user', text: transcript, id: messageId, timestamp: new Date().toISOString(), category: categorizeMessage(transcript).category, reactions: [], isPinned: false });
         renderMessages();
-        showTonePicker(transcript, messageId);
+        processMessage(transcript, messageId);
       }
     };
     recognition.onend = function() {
@@ -830,7 +824,7 @@
         langToggle.setAttribute('data-lang', currentLang === 'en' ? 'hi' : 'en');
         const chatInput = document.getElementById('chat-input');
         if (chatInput) {
-          chatInput.placeholder = currentLang === 'hi' ? chatInput.dataset.placeholderHi : 'Ask about LIC Neemuch’s services or plans...';
+          chatInput.placeholder = currentLang === 'hi' ? chatInput.dataset.placeholderHi : 'Ask about LIC plans or services...';
         }
         const searchBar = document.getElementById('search-bar');
         if (searchBar) {
@@ -839,8 +833,8 @@
         const welcomeMsg = window.messages.find(m => m.id === 'welcome');
         if (welcomeMsg) {
           welcomeMsg.text = currentLang === 'hi' 
-            ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
-            : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"';
+            ? 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"'
+            : 'Hi! I\'m the LIC India chatbot. Ask about insurance plans, premiums, claims, or services, like "What is LIC Jeevan Anand?" or "How to pay premiums?"';
           localStorage.setItem('lic-chat', JSON.stringify(window.messages));
         }
         handleInputChange(document.getElementById('chat-input').value);
