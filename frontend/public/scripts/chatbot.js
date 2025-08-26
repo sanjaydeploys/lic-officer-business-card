@@ -403,7 +403,7 @@
           <div class="edit-message flex items-center gap-2">
             <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
             <button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg" aria-label="Save edited message"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
-            <button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg" aria-label="Cancel edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            <button class="cancel-edit-btn bg-[#FF4D4F] text-white p-2 rounded-lg" aria-label="Cancel edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
           </div>`;
       } else {
         if (message.isPinned && message.associatedQuery) {
@@ -796,7 +796,7 @@
 
     if (chatMessages) {
       chatMessages.addEventListener('click', async e => {
-        const target = e.target.closest('.action-btn, .edit-message-button, .cancel-btn');
+        const target = e.target.closest('.action-btn, .edit-message-button, .cancel-edit-btn');
         if (!target) return;
         const messageDiv = target.closest('.message-container');
         const messageId = messageDiv.dataset.messageId;
@@ -805,7 +805,7 @@
 
         if (target.classList.contains('edit-btn') && message.sender === 'user') {
           editingMessageId = messageId;
-          editedText = message.text; // Preserve original text without cleaning
+          editedText = message.text; // Use raw text to preserve formatting
           renderMessages();
           const input = messageDiv.querySelector('.edit-message-input');
           if (input) input.focus();
@@ -859,11 +859,11 @@
               console.error('Speech synthesis error:', e);
             }
           }
-        } else if (target.classList.contains('edit-message-button')) {
+        } else if (target.classList.contains('edit-message-button') && message.sender === 'user') {
           const input = messageDiv.querySelector('.edit-message-input');
           const newText = input.value.trim();
-          if (newText && newText !== message.text) {
-            // Update the existing message
+          if (newText) {
+            // Update the original message
             window.messages = window.messages.map(m =>
               m.id === messageId
                 ? { ...m, text: newText, timestamp: new Date().toISOString(), category: categorizeMessage(newText).category }
@@ -872,26 +872,28 @@
             localStorage.setItem('lic-chat', JSON.stringify(window.messages));
             editingMessageId = null;
             renderMessages();
-            // Treat the edited message as a new user query
-            const newMessageId = Date.now();
-            window.messages.push({
-              sender: 'user',
-              text: newText,
-              id: newMessageId,
-              timestamp: new Date().toISOString(),
-              category: categorizeMessage(newText).category,
-              reactions: [],
-              isPinned: false,
-              associatedQuery: null
-            });
-            renderMessages();
-            await showTonePicker(newText, newMessageId);
-          } else if (newText === message.text) {
-            // No changes, just exit edit mode
+            // Create a new user message for the edited text
+            if (newText !== message.text) {
+              const newMessageId = Date.now() + 1; // Ensure unique ID
+              window.messages.push({
+                sender: 'user',
+                text: newText,
+                id: newMessageId,
+                timestamp: new Date().toISOString(),
+                category: categorizeMessage(newText).category,
+                reactions: [],
+                isPinned: false,
+                associatedQuery: null
+              });
+              renderMessages();
+              await showTonePicker(newText, newMessageId);
+            }
+          } else {
+            // If input is empty, exit edit mode without changes
             editingMessageId = null;
             renderMessages();
           }
-        } else if (target.classList.contains('cancel-btn')) {
+        } else if (target.classList.contains('cancel-edit-btn')) {
           editingMessageId = null;
           renderMessages();
         }
