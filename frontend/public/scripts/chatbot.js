@@ -58,6 +58,8 @@
   let showTimestamps = true;
   let searchQuery = '';
   let selectedCategory = '';
+  let pendingMessage = null;
+  let pendingMessageId = null;
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
   const suggestedPrompts = {
     en: [
@@ -145,40 +147,17 @@
   async function typeMessage(text, messageId, quickReplies) {
     const message = window.messages.find(m => m.id === messageId);
     if (!message) return;
-    
-    // Show typing animation
-    message.isTyping = true;
-    renderMessages();
-
-    // Calculate typing delay (100ms per character, adjustable)
-    const typingDelay = 100;
-    const totalTypingTime = text.length * typingDelay;
-    let audioPromise = Promise.resolve();
-
-    // Sync with audio if enabled
-    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
-      audioPromise = new Promise(resolve => {
-        window.speakMessage(messageId, text, currentLang, () => resolve());
-      });
-    }
-
-    // Type message character by character
     message.text = '';
+    renderMessages();
     for (let i = 0; i < text.length; i++) {
       message.text += text[i];
       renderMessages();
-      await new Promise(resolve => setTimeout(resolve, typingDelay));
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
-
-    // Wait for audio to complete if it's still playing
-    await audioPromise;
-
-    // Remove typing animation and add quick replies
-    message.isTyping = false;
     message.quickReplies = quickReplies;
     renderMessages();
-
     if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
+      window.speakMessage(messageId, text, currentLang);
       interactionAnalytics.speechUsed++;
     }
   }
@@ -319,18 +298,16 @@
       const messageContent = document.createElement('div');
       messageContent.className = 'message-content';
       messageContent.style.fontSize = `${fontSize}px`;
-      
-      if (message.isTyping) {
-        messageContent.innerHTML = '<div class="typing-animation"><span></span><span></span><span></span></div>';
-      } else if (editingMessageId === message.id) {
+      let formattedText = formatMarkdown(message.text);
+      if (editingMessageId === message.id) {
         messageContent.innerHTML =
           '<div class="edit-message flex items-center gap-2">' +
             '<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="' + editedText.replace(/"/g, '&quot;') + '">' +
-            '<button class="edit-message-button bg-[var(--chat-accent)] text-white p-1 rounded-lg"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
-            '<button class="cancel-btn bg-[var(--chat-error)] text-white p-1 rounded-lg"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
+            '<button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
+            '<button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
           '</div>';
       } else {
-        messageContent.innerHTML = formatMarkdown(message.text);
+        messageContent.innerHTML = formattedText;
         if (message.imageUrl) {
           messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'Image related to LIC India'}" class="message-image" loading="lazy">`;
         }
@@ -341,16 +318,14 @@
           messageContent.appendChild(timeSpan);
         }
         if (message.reactions.length > 0) {
-          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + 
-            message.reactions.map(r => `<span class="reaction-tag bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] rounded-full px-1 py-0.5 text-xs max-w-[2rem] overflow-hidden text-ellipsis">${r}</span>`).join('') + 
-            '</div>';
+          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + message.reactions.map(r => `<span class="reaction-tag bg-[#F5F5F5] dark:bg-[#2A3942] rounded-full px-2 py-1 text-sm">${r}</span>`).join('') + '</div>';
         }
         if (message.quickReplies && message.quickReplies.length > 0) {
           const replyButtons = document.createElement('div');
-          replyButtons.className = 'quick-replies flex flex-wrap gap-1 mt-2';
+          replyButtons.className = 'quick-replies flex gap-2 mt-2';
           message.quickReplies.forEach(reply => {
             const btn = document.createElement('button');
-            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-1 rounded-lg text-xs min-w-[80px]';
+            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm';
             btn.textContent = reply;
             btn.addEventListener('click', () => handleQuickReply(reply));
             replyButtons.appendChild(btn);
@@ -358,7 +333,7 @@
           messageContent.appendChild(replyButtons);
         }
       }
-      if (message.sender === 'ai' && message.text && !message.isTyping && typeof window.speakMessage === 'function') {
+      if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function') {
         const speakBtn = document.createElement('button');
         speakBtn.className = 'speak-btn';
         speakBtn.setAttribute('aria-label', 'Play or pause message');
@@ -369,29 +344,29 @@
         bubbleDiv.appendChild(speakBtn);
       }
       const messageActions = document.createElement('div');
-      messageActions.className = 'message-actions flex justify-end gap-1 mt-1';
+      messageActions.className = 'message-actions flex justify-end gap-2 mt-2';
       if (message.sender === 'user') {
         const editBtn = document.createElement('button');
-        editBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-1 rounded-full';
-        editBtn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
+        editBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+        editBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
         editBtn.addEventListener('click', function() { startEditing(message.id, message.text); });
         messageActions.appendChild(editBtn);
       }
       const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-1 rounded-full';
-      deleteBtn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4"></path></svg>';
+      deleteBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      deleteBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4"></path></svg>';
       deleteBtn.addEventListener('click', function() { deleteMessage(message.id); });
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-1 rounded-full';
-      copyBtn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
+      copyBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      copyBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
       copyBtn.addEventListener('click', function() { copyMessage(message.text); });
       const pinBtn = document.createElement('button');
-      pinBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-1 rounded-full';
-      pinBtn.innerHTML = message.isPinned ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
+      pinBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      pinBtn.innerHTML = message.isPinned ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
       pinBtn.addEventListener('click', function() { togglePinMessage(message.id); });
       const reactionBtn = document.createElement('button');
-      reactionBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-1 rounded-full';
-      reactionBtn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+      reactionBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      reactionBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
       reactionBtn.addEventListener('click', function() { showReactionPicker(message.id, bubbleDiv); });
       messageActions.appendChild(deleteBtn);
       messageActions.appendChild(copyBtn);
@@ -552,11 +527,11 @@
       return;
     }
     const picker = document.createElement('div');
-    picker.className = 'reaction-picker absolute bg-[var(--chat-bg-light)] dark:bg-[var(--chat-bg-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-1 flex gap-1 z-10';
+    picker.className = 'reaction-picker absolute bg-white dark:bg-[#2A3942] border rounded-lg p-2 flex gap-2 z-10';
     emojiOptions.forEach(emoji => {
       const btn = document.createElement('button');
       btn.textContent = emoji;
-      btn.className = 'reaction-picker-item text-sm p-1';
+      btn.className = 'reaction-picker-item text-lg';
       btn.addEventListener('click', function() { addReaction(messageId, emoji); picker.remove(); });
       picker.appendChild(btn);
     });
@@ -737,7 +712,7 @@
   function adjustFontSize(change) {
     fontSize = Math.max(10, Math.min(18, fontSize + change));
     localStorage.setItem('chat-font-size', fontSize);
-    const elements = document.querySelectorAll('.chatbot-container .message-content, .chatbot-container .chat-input, .chatbot-container .search-bar, .chatbot-container .suggestion-btn, .chatbot-container .message-actions, .chatbot-container .quick-reply-btn');
+    const elements = document.querySelectorAll('.chatbot-container .message-content, .chatbot-container .chat-input, .chatbot-container .search-bar, .chatbot-container .suggestion-btn, .chatbot-container .message-actions');
     elements.forEach(function(element) {
       element.style.setProperty('font-size', `${fontSize}px`, 'important');
     });
