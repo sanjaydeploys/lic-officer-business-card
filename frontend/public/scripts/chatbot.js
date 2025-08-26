@@ -102,11 +102,6 @@
     return window.licContext?.imageContext || {};
   }
 
-  function showTonePicker(message, messageId) {
-    // Only professional tone is allowed, so process directly
-    processMessageWithTone(message, messageId, 'professional');
-  }
-
   async function processMessageWithTone(message, messageId, tone) {
     if (isLoading) return;
     isLoading = true;
@@ -556,33 +551,39 @@
     renderMessages();
     const chatInput = document.getElementById('chat-input');
     if (chatInput) chatInput.value = '';
-    showTonePicker(message, messageId);
+    processMessageWithTone(message, messageId, 'professional');
   }
 
   function startEditing(id, text) {
+    console.log('Starting edit for message ID:', id, 'with text:', text);
     editingMessageId = id;
     editedText = text;
     renderMessages();
-    const editInput = document.querySelector(`[data-message-id="${id}"] .edit-message-input`);
-    if (editInput) {
-      editInput.focus();
-      editInput.addEventListener('input', e => {
-        editedText = e.target.value;
-      }, { once: true });
-      editInput.addEventListener('keypress', e => {
-        if (e.key === 'Enter') {
-          saveEditedMessage(id);
-        }
-      }, { once: true });
-    } else {
-      console.error('Edit input not found for message ID:', id);
-      editingMessageId = null;
-      renderMessages();
-    }
+    // Use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      const editInput = document.querySelector(`[data-message-id="${id}"] .edit-message-input`);
+      if (editInput) {
+        console.log('Edit input found for message ID:', id);
+        editInput.focus();
+        editInput.addEventListener('input', e => {
+          editedText = e.target.value;
+        });
+        editInput.addEventListener('keypress', e => {
+          if (e.key === 'Enter') {
+            saveEditedMessage(id);
+          }
+        });
+      } else {
+        console.error('Edit input not found for message ID:', id);
+        editingMessageId = null;
+        renderMessages();
+      }
+    }, 0);
   }
 
   async function saveEditedMessage(id) {
     if (!editedText.trim()) {
+      console.log('Edit canceled: empty text for message ID:', id);
       editingMessageId = null;
       renderMessages();
       return;
@@ -595,6 +596,7 @@
       return;
     }
     if (originalMessage.text !== editedText) {
+      console.log('Saving edited message ID:', id, 'with new text:', editedText);
       // Update original message
       window.messages = window.messages.map(m =>
         m.id == id ? { ...m, text: editedText, timestamp: new Date().toISOString(), category: categorizeMessage(editedText).category } : m
@@ -614,14 +616,16 @@
       localStorage.setItem('lic-chat', JSON.stringify(window.messages));
       editingMessageId = null;
       renderMessages();
-      await showTonePicker(editedText, newMessageId);
+      await processMessageWithTone(editedText, newMessageId, 'professional');
     } else {
+      console.log('No changes made to message ID:', id);
       editingMessageId = null;
       renderMessages();
     }
   }
 
   function cancelEdit() {
+    console.log('Canceling edit for message ID:', editingMessageId);
     editingMessageId = null;
     editedText = '';
     renderMessages();
@@ -879,9 +883,16 @@
         const target = e.target.closest('.action-btn, .edit-message-button, .cancel-edit-btn');
         if (!target) return;
         const messageDiv = target.closest('.message-container');
+        if (!messageDiv) {
+          console.error('Message container not found for target:', target);
+          return;
+        }
         const messageId = messageDiv.dataset.messageId;
         const message = window.messages.find(m => m.id == messageId);
-        if (!message) return;
+        if (!message) {
+          console.error('Message not found for ID:', messageId);
+          return;
+        }
 
         if (target.classList.contains('edit-btn') && message.sender === 'user') {
           startEditing(messageId, message.text);
