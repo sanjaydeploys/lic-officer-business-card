@@ -140,39 +140,40 @@
 
   function formatResponse(text) {
     return text
-      .replace(/(\n\s*[-*]\s+)/g, '\n- ') // Ensure consistent bullet points
-      .replace(/(\n- .+)+/g, match => match.replace(/\n/g, '\n')); // Preserve newlines in lists
+      .replace(/(\n\s*[-*]\s+)/g, '\n- ')
+      .replace(/(\n- .+)+/g, match => match.replace(/\n/g, '\n'));
   }
 
   async function typeMessage(text, messageId, quickReplies) {
     const message = window.messages.find(m => m.id === messageId);
-    if (!message) return;
+    if (!message) {
+      console.error(`Message not found for ID: ${messageId}`);
+      return;
+    }
     const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
-    if (!messageDiv) return;
+    if (!messageDiv) {
+      console.error(`Message content div not found for ID: ${messageId}`);
+      return;
+    }
 
-    // Initialize fixed-height placeholder to prevent shaking
     messageDiv.innerHTML = '<div class="typing-placeholder min-h-[20px]"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
     const placeholder = messageDiv.querySelector('.typing-placeholder');
     let currentText = '';
-    const charDelay = 50; // Slower typing for smoothness
-    let spokenText = '';
+    const charDelay = 50;
 
-    // Start speaking immediately if enabled
     if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
+      console.log(`Auto-speak triggered for message ID: ${messageId}`);
       window.speakMessage(messageId, text, currentLang);
       interactionAnalytics.speechUsed++;
     }
 
-    // Type character by character
     for (let i = 0; i < text.length; i++) {
       currentText += text[i];
       placeholder.innerHTML = `<div>${formatMarkdown(currentText)}</div>`;
       message.text = currentText;
-      renderMessages(); // Minimal re-render to update only this message
       await new Promise(resolve => setTimeout(resolve, charDelay));
     }
 
-    // Finalize message
     message.text = formatResponse(text);
     message.quickReplies = quickReplies;
     messageDiv.innerHTML = formatMarkdown(message.text);
@@ -189,10 +190,14 @@
       messageDiv.appendChild(replyButtons);
     }
     renderMessages();
+    console.log(`Message typed for ID: ${messageId}`);
   }
 
   async function processMessage(message, messageId) {
-    if (isLoading) return;
+    if (isLoading) {
+      console.warn('Message processing skipped: isLoading=true');
+      return;
+    }
     isLoading = true;
     interactionAnalytics.questionsAsked++;
     const { category, imageKey } = categorizeMessage(message);
@@ -292,6 +297,7 @@
 
     isLoading = false;
     renderMessages();
+    console.log(`Message processed for ID: ${responseId}`);
   }
 
   function renderMessages() {
@@ -308,7 +314,7 @@
       : window.messages;
 
     if (filteredMessages.length === 0) {
-      chatMessages.innerHTML = '<div class="no-messages">No messages found</div>';
+      chatMessages.innerHTML = `<div class="no-messages">${currentLang === 'hi' ? 'कोई संदेश नहीं मिला' : 'No messages found'}</div>`;
     }
 
     filteredMessages.sort((a, b) => {
@@ -331,23 +337,25 @@
       if (editingMessageId === message.id) {
         messageContent.innerHTML =
           '<div class="edit-message flex items-center gap-2">' +
-            '<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="' + editedText.replace(/"/g, '&quot;') + '">' +
-            '<button class="edit-message-button bg-[#128C7E] text-white p-1 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
-            '<button class="cancel-btn bg-[#D32F2F] text-white p-1 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
+            `<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]" value="${editedText.replace(/"/g, '&quot;')}">` +
+            '<button class="edit-message-button bg-[var(--chat-accent)] text-white p-[0.3rem] rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
+            '<button class="cancel-btn bg-[var(--chat-error)] text-white p-[0.3rem] rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
           '</div>';
       } else {
         messageContent.innerHTML = formattedText;
         if (message.imageUrl) {
-          messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'Image related to LIC India'}" class="message-image" loading="lazy">`;
+          messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'Image related to LIC India'}" class="message-image max-w-full h-auto rounded-lg mt-2" loading="lazy">`;
         }
         if (showTimestamps) {
           const timeSpan = document.createElement('span');
-          timeSpan.className = 'message-timestamp';
+          timeSpan.className = 'message-timestamp text-[0.625rem] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] text-right block mt-1';
           timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           messageContent.appendChild(timeSpan);
         }
         if (message.reactions.length > 0) {
-          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + message.reactions.map(r => `<span class="reaction-tag bg-[#F5F5F5] dark:bg-[#2A3942] rounded-full px-2 py-1 text-sm">${r}</span>`).join('') + '</div>';
+          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + 
+            message.reactions.map(r => `<span class="reaction-tag bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] rounded-full px-2 py-1 text-[1rem] font-family-emoji">${r}</span>`).join('') + 
+            '</div>';
         }
         if (message.quickReplies && message.quickReplies.length > 0) {
           const replyButtons = document.createElement('div');
@@ -364,37 +372,45 @@
       }
       if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function') {
         const speakBtn = document.createElement('button');
-        speakBtn.className = 'speak-btn absolute top-2 right-2';
+        speakBtn.className = 'speak-btn absolute top-2 right-2 p-[0.3rem] bg-transparent text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
         speakBtn.setAttribute('aria-label', 'Play or pause message');
         speakBtn.innerHTML = message.isSpeaking
           ? `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
           : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z"></path></svg>`;
-        speakBtn.addEventListener('click', () => window.speakMessage(message.id, message.text, currentLang));
+        speakBtn.addEventListener('click', () => {
+          window.speakMessage(message.id, message.text, currentLang);
+          console.log(`Speech started for message ID: ${message.id}`);
+        });
         bubbleDiv.appendChild(speakBtn);
       }
       const messageActions = document.createElement('div');
       messageActions.className = 'message-actions flex justify-end gap-2 mt-2';
       if (message.sender === 'user') {
         const editBtn = document.createElement('button');
-        editBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+        editBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
         editBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
-        editBtn.addEventListener('click', function() { startEditing(message.id, message.text); });
+        editBtn.addEventListener('click', function() { 
+          startEditing(message.id, message.text); 
+          console.log(`Edit button clicked for message ID: ${message.id}`);
+        });
         messageActions.appendChild(editBtn);
       }
       const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      deleteBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
       deleteBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4"></path></svg>';
       deleteBtn.addEventListener('click', function() { deleteMessage(message.id); });
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      copyBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
       copyBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
       copyBtn.addEventListener('click', function() { copyMessage(message.text); });
       const pinBtn = document.createElement('button');
-      pinBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
-      pinBtn.innerHTML = message.isPinned ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
+      pinBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
+      pinBtn.innerHTML = message.isPinned 
+        ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' 
+        : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
       pinBtn.addEventListener('click', function() { togglePinMessage(message.id); });
       const reactionBtn = document.createElement('button');
-      reactionBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      reactionBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.3rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white';
       reactionBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
       reactionBtn.addEventListener('click', function() { showReactionPicker(message.id, bubbleDiv); });
       messageActions.appendChild(deleteBtn);
@@ -410,7 +426,7 @@
     if (isLoading) {
       const loadingDiv = document.createElement('div');
       loadingDiv.className = 'flex justify-start mb-2';
-      loadingDiv.innerHTML = '<div class="ai-message p-3 rounded-lg rounded-bl-none max-w-[80%] flex items-center"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
+      loadingDiv.innerHTML = '<div class="ai-message p-3 rounded-lg max-w-[80%] flex items-center"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
       chatMessages.appendChild(loadingDiv);
     }
 
@@ -418,27 +434,34 @@
     updateTimestamps();
     updateButtonStates();
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+    console.log(`Messages rendered: ${filteredMessages.length} messages`);
 
-    // Setup MutationObserver for edit input
     if (editingMessageId) {
       const observer = new MutationObserver((mutations, obs) => {
         const editInput = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-input`);
         if (editInput) {
           console.log(`Edit input found for message ID: ${editingMessageId}`);
           editInput.focus();
-          editInput.addEventListener('input', (e) => editedText = e.target.value);
+          editInput.addEventListener('input', (e) => {
+            editedText = e.target.value;
+            console.log(`Edit input updated for message ID: ${editingMessageId}, text: ${editedText}`);
+          });
           editInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') saveEditedMessage(editingMessageId);
           });
           const saveBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-button`);
           if (saveBtn) {
-            console.log(`Save button found for message ID: ${editingMessageId}`);
-            saveBtn.addEventListener('click', () => saveEditedMessage(editingMessageId));
+            saveBtn.addEventListener('click', () => {
+              saveEditedMessage(editingMessageId);
+              console.log(`Save button clicked for message ID: ${editingMessageId}`);
+            });
           }
           const cancelBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .cancel-btn`);
           if (cancelBtn) {
-            console.log(`Cancel button found for message ID: ${editingMessageId}`);
-            cancelBtn.addEventListener('click', () => cancelEdit());
+            cancelBtn.addEventListener('click', () => {
+              cancelEdit();
+              console.log(`Cancel button clicked for message ID: ${editingMessageId}`);
+            });
           }
           obs.disconnect();
         }
@@ -446,7 +469,6 @@
       observer.observe(chatMessages, { childList: true, subtree: true });
     }
 
-    // Update pinned messages window
     updatePinnedMessagesWindow();
   }
 
@@ -454,7 +476,7 @@
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-[#2A3942] p-1 rounded">$1</code>')
+      .replace(/`(.*?)`/g, '<code class="bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] p-1 rounded">$1</code>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-blue-500 underline">$1</a>')
       .replace(/^- (.*)$/gm, '<li>$1</li>')
       .replace(/(\n<li>.*<\/li>)+/g, '<ul class="list-disc pl-5">$&</ul>')
@@ -494,10 +516,10 @@
       pinnedWindow.appendChild(header);
       pinnedMessages.forEach(message => {
         const pinnedDiv = document.createElement('div');
-        pinnedDiv.className = 'pinned-message';
+        pinnedDiv.className = 'pinned-message bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] p-2 rounded-lg mb-2';
         pinnedDiv.innerHTML = `<p>${formatMarkdown(message.text)}</p>`;
         const unpinBtn = document.createElement('button');
-        unpinBtn.className = 'unpin-btn';
+        unpinBtn.className = 'unpin-btn bg-[var(--chat-error)] text-white p-1 rounded-lg';
         unpinBtn.textContent = currentLang === 'hi' ? 'अनपिन करें' : 'Unpin';
         unpinBtn.addEventListener('click', () => togglePinMessage(message.id));
         pinnedDiv.appendChild(unpinBtn);
@@ -509,7 +531,7 @@
       pinnedWindow.appendChild(noPinned);
     }
     pinnedWindow.classList.toggle('active', isPinnedWindowOpen && pinnedMessages.length > 0);
-    console.log(`Pinned window toggled: isPinnedWindowOpen=${isPinnedWindowOpen}, pinnedMessages=${pinnedMessages.length}`);
+    console.log(`Pinned window updated: isPinnedWindowOpen=${isPinnedWindowOpen}, pinnedMessages=${pinnedMessages.length}`);
   }
 
   async function sendMessage() {
@@ -522,19 +544,26 @@
     if (!message || isLoading) return;
 
     const messageId = Date.now();
-    window.messages.push({ sender: 'user', text: message, id: messageId, timestamp: new Date().toISOString(), category: categorizeMessage(message).category, reactions: [], isPinned: false });
+    window.messages.push({ 
+      sender: 'user', 
+      text: message, 
+      id: messageId, 
+      timestamp: new Date().toISOString(), 
+      category: categorizeMessage(message).category, 
+      reactions: [], 
+      isPinned: false 
+    });
     input.value = '';
     renderMessages();
     await processMessage(message, messageId);
+    console.log(`Message sent: ${message}, ID: ${messageId}`);
   }
 
   function categorizeMessage(message) {
     const lowerMessage = message.toLowerCase();
     const imageContext = getImageContext();
-    console.log('Categorizing message:', lowerMessage, 'Image context:', imageContext);
     for (const [imageKey, { keywords }] of Object.entries(imageContext)) {
       if (isImageRelevant(lowerMessage, keywords)) {
-        console.log(`Image matched: ${imageKey} for keywords ${keywords}`);
         return { category: 'plans', imageKey };
       }
     }
@@ -560,6 +589,7 @@
     if (searchBar) searchBar.value = '';
     renderMessages();
     handleInputChange('');
+    console.log(`Category filter applied: ${category}`);
   }
 
   function handlePromptClick(prompt) {
@@ -583,7 +613,7 @@
     if (suggestionsContainer) {
       filteredSuggestions = value.trim() ? suggestedPrompts[currentLang].filter(function(prompt) { return prompt.toLowerCase().includes(value.toLowerCase()); }) : suggestedPrompts[currentLang];
       suggestionsContainer.innerHTML = filteredSuggestions.map(function(prompt) {
-        return '<button class="suggestion-btn">' + prompt + '</button>';
+        return `<button class="suggestion-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm">${prompt}</button>`;
       }).join('');
       suggestionsContainer.querySelectorAll('.suggestion-btn').forEach((btn, index) => {
         btn.addEventListener('click', () => handlePromptClick(filteredSuggestions[index]));
@@ -596,15 +626,20 @@
     const existingPicker = messageDiv.querySelector('.reaction-picker');
     if (existingPicker) {
       existingPicker.remove();
+      console.log(`Reaction picker closed for message ID: ${messageId}`);
       return;
     }
     const picker = document.createElement('div');
-    picker.className = 'reaction-picker absolute bg-white dark:bg-[#2A3942] border rounded-lg p-2 flex gap-2 z-10 max-w-full';
+    picker.className = 'reaction-picker absolute bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-2 flex gap-2 z-10 max-w-full font-family-emoji';
     emojiOptions.forEach(emoji => {
       const btn = document.createElement('button');
       btn.textContent = emoji;
-      btn.className = 'reaction-picker-item text-lg p-1';
-      btn.addEventListener('click', function() { addReaction(messageId, emoji); picker.remove(); });
+      btn.className = 'reaction-picker-item text-[1rem] p-1 hover:bg-[var(--chat-accent)] rounded';
+      btn.addEventListener('click', function() { 
+        addReaction(messageId, emoji); 
+        picker.remove(); 
+        console.log(`Reaction ${emoji} selected for message ID: ${messageId}`);
+      });
       picker.appendChild(btn);
     });
     messageDiv.appendChild(picker);
@@ -612,6 +647,7 @@
     picker.style.top = '100%';
     picker.style.left = message.sender === 'user' ? 'auto' : '0';
     picker.style.right = message.sender === 'user' ? '0' : 'auto';
+    console.log(`Reaction picker opened for message ID: ${messageId}`);
   }
 
   function addReaction(messageId, emoji) {
@@ -623,6 +659,7 @@
         interactionAnalytics.reactionsUsed++;
         renderMessages();
         localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+        console.log(`Reaction ${emoji} added to message ID: ${messageId}`);
       }
     }
   }
@@ -639,10 +676,10 @@
   }
 
   function startEditing(id, text) {
-    console.log(`Starting edit for message ID: ${id} with text: ${text}`);
     editingMessageId = id;
     editedText = text;
     renderMessages();
+    console.log(`Starting edit for message ID: ${id} with text: ${text}`);
   }
 
   function saveEditedMessage(id) {
@@ -662,10 +699,12 @@
       editedText = '';
       renderMessages();
       processMessage(editedText, newMessageId);
+      console.log(`Message saved for ID: ${newMessageId}, text: ${editedText}`);
     } else {
       editingMessageId = null;
       editedText = '';
       renderMessages();
+      console.log('Edit cancelled due to empty text');
     }
   }
 
@@ -673,6 +712,7 @@
     editingMessageId = null;
     editedText = '';
     renderMessages();
+    console.log('Edit cancelled');
   }
 
   function deleteMessage(id) {
@@ -692,6 +732,7 @@
     }
     renderMessages();
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+    console.log(`Message deleted: ID ${id}`);
   }
 
   function copyMessage(text) {
@@ -760,6 +801,7 @@
     const categoryFilter = document.getElementById('category-filter');
     if (categoryFilter) categoryFilter.value = '';
     renderMessages();
+    console.log(`Search query applied: ${query}`);
   }
 
   function toggleHistory() {
@@ -816,11 +858,11 @@
 
   function confirmClearChat() {
     const confirmPopup = document.createElement('div');
-    confirmPopup.className = 'confirm-popup';
+    confirmPopup.className = 'confirm-popup bg-[var(--chat-bg-light)] dark:bg-[var(--chat-bg-dark)] p-4 rounded-lg shadow-lg';
     confirmPopup.innerHTML = `
-      <p>${currentLang === 'hi' ? 'क्या आप वाकई चैट इतिहास मिटाना चाहते हैं?' : 'Are you sure you want to clear the chat history?'}</p>
-      <button class="confirm-btn">${currentLang === 'hi' ? 'हाँ' : 'Yes'}</button>
-      <button class="cancel-btn">${currentLang === 'hi' ? 'नहीं' : 'No'}</button>
+      <p class="text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)] mb-4">${currentLang === 'hi' ? 'क्या आप वाकई चैट इतिहास मिटाना चाहते हैं?' : 'Are you sure you want to clear the chat history?'}</p>
+      <button class="confirm-btn bg-[var(--chat-accent)] text-white p-2 rounded-lg mr-2">${currentLang === 'hi' ? 'हाँ' : 'Yes'}</button>
+      <button class="cancel-btn bg-[var(--chat-error)] text-white p-2 rounded-lg">${currentLang === 'hi' ? 'नहीं' : 'No'}</button>
     `;
     document.getElementById('chatbot-container').appendChild(confirmPopup);
     const confirmBtn = confirmPopup.querySelector('.confirm-btn');
@@ -844,6 +886,7 @@
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
     renderMessages();
     document.querySelectorAll('.confirm-popup').forEach(p => p.remove());
+    console.log('Chat history cleared');
   }
 
   function toggleRecording() {
@@ -859,6 +902,7 @@
       isRecording = true;
       const voiceBtn = document.querySelector('.voice-btn');
       if (voiceBtn) voiceBtn.classList.add('recording');
+      console.log(`Voice recording started, lang: ${recognition.lang}`);
     }
   }
 
@@ -872,15 +916,25 @@
         const voiceBtn = document.querySelector('.voice-btn');
         if (voiceBtn) voiceBtn.classList.remove('recording');
         const messageId = Date.now();
-        window.messages.push({ sender: 'user', text: transcript, id: messageId, timestamp: new Date().toISOString(), category: categorizeMessage(transcript).category, reactions: [], isPinned: false });
+        window.messages.push({ 
+          sender: 'user', 
+          text: transcript, 
+          id: messageId, 
+          timestamp: new Date().toISOString(), 
+          category: categorizeMessage(transcript).category, 
+          reactions: [], 
+          isPinned: false 
+        });
         renderMessages();
         processMessage(transcript, messageId);
+        console.log(`Voice input processed: ${transcript}`);
       }
     };
     recognition.onend = function() {
       isRecording = false;
       const voiceBtn = document.querySelector('.voice-btn');
       if (voiceBtn) voiceBtn.classList.remove('recording');
+      console.log('Voice recording stopped');
     };
     recognition.onerror = function(event) {
       console.error('Speech recognition error:', event.error);
@@ -967,6 +1021,7 @@
         filteredSuggestions = suggestedPrompts[currentLang];
         renderMessages();
         if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech();
+        console.log(`Language toggled to: ${currentLang}`);
       });
     }
 
@@ -987,7 +1042,10 @@
 
     const volumeControl = document.getElementById('volume-control');
     if (volumeControl) volumeControl.addEventListener('input', function(e) {
-      if (typeof window.setSpeechVolume === 'function') window.setSpeechVolume(e.target.value);
+      if (typeof window.setSpeechVolume === 'function') {
+        window.setSpeechVolume(e.target.value);
+        console.log(`Volume set to: ${e.target.value}`);
+      }
     });
 
     document.querySelectorAll('.font-btn').forEach(btn => {
@@ -1018,5 +1076,6 @@
     if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
     adjustFontSize(0);
+    console.log('DOM loaded, chatbot initialized');
   });
 })();
