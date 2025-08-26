@@ -58,8 +58,7 @@
   let showTimestamps = true;
   let searchQuery = '';
   let selectedCategory = '';
-  let pendingMessage = null;
-  let pendingMessageId = null;
+  let isPinnedWindowOpen = false;
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
   const suggestedPrompts = {
     en: [
@@ -148,18 +147,31 @@
     const message = window.messages.find(m => m.id === messageId);
     if (!message) return;
     message.text = '';
-    renderMessages();
+    const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
+    if (messageDiv) {
+      messageDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+      renderMessages();
+    }
+    const charDelay = 30; // Milliseconds per character
+    const totalDuration = text.length * charDelay;
+    let spoken = false;
+
     for (let i = 0; i < text.length; i++) {
       message.text += text[i];
       renderMessages();
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, charDelay));
     }
+
+    // Sync audio with typing completion
+    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function' && !spoken) {
+      window.speakMessage(messageId, text, currentLang, totalDuration / 1000); // Pass duration in seconds
+      interactionAnalytics.speechUsed++;
+      spoken = true;
+    }
+
+    message.text = formatResponse(text);
     message.quickReplies = quickReplies;
     renderMessages();
-    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
-      window.speakMessage(messageId, text, currentLang);
-      interactionAnalytics.speechUsed++;
-    }
   }
 
   async function processMessage(message, messageId) {
@@ -284,7 +296,7 @@
 
     filteredMessages.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
-      if (!b.isPinned && b.isPinned) return 1;
+      if (!a.isPinned && b.isPinned) return 1;
       return new Date(a.timestamp) - new Date(b.timestamp);
     });
 
@@ -303,8 +315,8 @@
         messageContent.innerHTML =
           '<div class="edit-message flex items-center gap-2">' +
             '<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="' + editedText.replace(/"/g, '&quot;') + '">' +
-            '<button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
-            '<button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
+            '<button class="edit-message-button bg-[#128C7E] text-white p-1 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
+            '<button class="cancel-btn bg-[#D32F2F] text-white p-1 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
           '</div>';
       } else {
         messageContent.innerHTML = formattedText;
@@ -322,10 +334,10 @@
         }
         if (message.quickReplies && message.quickReplies.length > 0) {
           const replyButtons = document.createElement('div');
-          replyButtons.className = 'quick-replies flex gap-2 mt-2';
+          replyButtons.className = 'quick-replies flex flex-wrap gap-2 mt-2';
           message.quickReplies.forEach(reply => {
             const btn = document.createElement('button');
-            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm';
+            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm min-w-[120px] text-center';
             btn.textContent = reply;
             btn.addEventListener('click', () => handleQuickReply(reply));
             replyButtons.appendChild(btn);
@@ -335,11 +347,11 @@
       }
       if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function') {
         const speakBtn = document.createElement('button');
-        speakBtn.className = 'speak-btn';
+        speakBtn.className = 'speak-btn absolute top-2 right-2';
         speakBtn.setAttribute('aria-label', 'Play or pause message');
         speakBtn.innerHTML = message.isSpeaking
-          ? `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
-          : `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z"></path></svg>`;
+          ? `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
+          : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z"></path></svg>`;
         speakBtn.addEventListener('click', () => window.speakMessage(message.id, message.text, currentLang));
         bubbleDiv.appendChild(speakBtn);
       }
@@ -404,12 +416,15 @@
           const saveBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-button`);
           if (saveBtn) saveBtn.addEventListener('click', () => saveEditedMessage(editingMessageId));
           const cancelBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .cancel-btn`);
-          if (cancelBtn) cancelBtn.addEventListener('click', cancelEdit);
+          if (cancelBtn) cancelBtn.addEventListener('click', () => cancelEdit());
           obs.disconnect();
         }
       });
       observer.observe(chatMessages, { childList: true, subtree: true });
     }
+
+    // Update pinned messages window
+    updatePinnedMessagesWindow();
   }
 
   function formatMarkdown(text) {
@@ -440,6 +455,34 @@
     const voiceBtn = document.querySelector('.voice-btn');
     if (voiceBtn) voiceBtn.disabled = isLoading || !recognition;
     document.querySelectorAll('.suggestion-btn').forEach(function(btn) { btn.disabled = isLoading; });
+  }
+
+  function updatePinnedMessagesWindow() {
+    const pinnedWindow = document.getElementById('pinned-messages-window');
+    if (!pinnedWindow) return;
+    pinnedWindow.innerHTML = '';
+    const pinnedMessages = window.messages.filter(m => m.isPinned);
+    if (pinnedMessages.length > 0) {
+      const header = document.createElement('h3');
+      header.textContent = currentLang === 'hi' ? 'पिन किए गए संदेश' : 'Pinned Messages';
+      pinnedWindow.appendChild(header);
+      pinnedMessages.forEach(message => {
+        const pinnedDiv = document.createElement('div');
+        pinnedDiv.className = 'pinned-message';
+        pinnedDiv.innerHTML = `<p>${formatMarkdown(message.text)}</p>`;
+        const unpinBtn = document.createElement('button');
+        unpinBtn.className = 'unpin-btn';
+        unpinBtn.textContent = currentLang === 'hi' ? 'अनपिन करें' : 'Unpin';
+        unpinBtn.addEventListener('click', () => togglePinMessage(message.id));
+        pinnedDiv.appendChild(unpinBtn);
+        pinnedWindow.appendChild(pinnedDiv);
+      });
+    } else {
+      const noPinned = document.createElement('p');
+      noPinned.textContent = currentLang === 'hi' ? 'कोई पिन किया गया संदेश नहीं' : 'No pinned messages';
+      pinnedWindow.appendChild(noPinned);
+    }
+    pinnedWindow.classList.toggle('active', isPinnedWindowOpen && pinnedMessages.length > 0);
   }
 
   async function sendMessage() {
@@ -527,11 +570,11 @@
       return;
     }
     const picker = document.createElement('div');
-    picker.className = 'reaction-picker absolute bg-white dark:bg-[#2A3942] border rounded-lg p-2 flex gap-2 z-10';
+    picker.className = 'reaction-picker absolute bg-white dark:bg-[#2A3942] border rounded-lg p-2 flex gap-2 z-10 max-w-full';
     emojiOptions.forEach(emoji => {
       const btn = document.createElement('button');
       btn.textContent = emoji;
-      btn.className = 'reaction-picker-item text-lg';
+      btn.className = 'reaction-picker-item text-lg p-1';
       btn.addEventListener('click', function() { addReaction(messageId, emoji); picker.remove(); });
       picker.appendChild(btn);
     });
@@ -574,7 +617,7 @@
   function saveEditedMessage(id) {
     if (editedText.trim()) {
       const newMessageId = Date.now();
-      window.messages = window.messages.filter(m => m.id !== id); // Remove old message
+      window.messages = window.messages.filter(m => m.id !== id);
       window.messages.push({
         sender: 'user',
         text: editedText,
@@ -587,7 +630,7 @@
       editingMessageId = null;
       editedText = '';
       renderMessages();
-      processMessage(editedText, newMessageId); // Process as new message
+      processMessage(editedText, newMessageId);
     } else {
       editingMessageId = null;
       editedText = '';
@@ -634,8 +677,8 @@
     const themeBtn = document.querySelector('.theme-btn');
     if (themeBtn) {
       themeBtn.innerHTML = isDarkMode
-        ? '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>'
-        : '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>';
+        ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>'
+        : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>';
     }
     renderMessages();
   }
@@ -647,8 +690,8 @@
       const toggleBtn = document.querySelector('.controls-toggle');
       if (toggleBtn) {
         toggleBtn.innerHTML = controls.classList.contains('hidden')
-          ? '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>'
-          : '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+          ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>'
+          : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
       }
     }
   }
@@ -661,6 +704,15 @@
         searchBar.focus();
       }
     }
+  }
+
+  function togglePinnedWindow() {
+    isPinnedWindowOpen = !isPinnedWindowOpen;
+    const pinnedToggle = document.querySelector('.pinned-toggle');
+    if (pinnedToggle) {
+      pinnedToggle.classList.toggle('active', isPinnedWindowOpen);
+    }
+    updatePinnedMessagesWindow();
   }
 
   function searchMessages(query) {
@@ -712,7 +764,7 @@
   function adjustFontSize(change) {
     fontSize = Math.max(10, Math.min(18, fontSize + change));
     localStorage.setItem('chat-font-size', fontSize);
-    const elements = document.querySelectorAll('.chatbot-container .message-content, .chatbot-container .chat-input, .chatbot-container .search-bar, .chatbot-container .suggestion-btn, .chatbot-container .message-actions');
+    const elements = document.querySelectorAll('.chatbot-container .message-content, .chatbot-container .chat-input, .chatbot-container .search-bar, .chatbot-container .suggestion-btn, .chatbot-container .quick-reply-btn, .chatbot-container .message-actions');
     elements.forEach(function(element) {
       element.style.setProperty('font-size', `${fontSize}px`, 'important');
     });
@@ -811,6 +863,9 @@
 
     const searchToggle = document.querySelector('.search-toggle');
     if (searchToggle) searchToggle.addEventListener('click', toggleSearchBar);
+
+    const pinnedToggle = document.querySelector('.pinned-toggle');
+    if (pinnedToggle) pinnedToggle.addEventListener('click', togglePinnedWindow);
 
     const themeBtn = document.querySelector('.theme-btn');
     if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
