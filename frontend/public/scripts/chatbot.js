@@ -400,21 +400,28 @@
       const messageContent = document.createElement('div');
       messageContent.className = 'message-content';
       messageContent.style.fontSize = `${fontSize}px`;
-      let formattedText = formatMarkdown(message.text);
+
+      // Explicitly handle edit UI for user messages being edited
       if (editingMessageId === message.id && message.sender === 'user') {
-        console.log('Rendering edit UI for message ID:', message.id, 'with HTML:', `
-          <div class="edit-message flex items-center gap-2">
-            <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
-            <button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg" aria-label="Save edited message"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
-            <button class="cancel-edit-btn bg-[#FF4D4F] text-white p-2 rounded-lg" aria-label="Cancel edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-          </div>`);
-        messageContent.innerHTML = `
+        const editHtml = `
           <div class="edit-message flex items-center gap-2">
             <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
             <button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg" aria-label="Save edited message"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
             <button class="cancel-edit-btn bg-[#FF4D4F] text-white p-2 rounded-lg" aria-label="Cancel edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
           </div>`;
+        console.log('Rendering edit UI for message ID:', message.id, 'with HTML:', editHtml);
+        messageContent.innerHTML = editHtml;
+
+        // Immediate DOM check to confirm edit UI was added
+        setTimeout(() => {
+          const editInputCheck = document.querySelector(`[data-message-id="${message.id}"] .edit-message-input`);
+          console.log('Immediate post-render check for edit input ID:', message.id, 'Found:', !!editInputCheck);
+          if (!editInputCheck) {
+            console.error('Edit UI not rendered for message ID:', message.id, 'Current #chat-messages HTML:', chatMessages.innerHTML);
+          }
+        }, 0);
       } else {
+        let formattedText = formatMarkdown(message.text);
         if (message.isPinned && message.associatedQuery) {
           messageContent.innerHTML = `<p><strong>प्रश्न:</strong> ${message.associatedQuery || 'N/A'}</p><p><strong>उत्तर:</strong> ${formattedText}</p>`;
         } else {
@@ -495,15 +502,6 @@
     scrollToBottom();
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
     updatePinnedMessages();
-
-    // Debug: Log DOM state after rendering
-    if (editingMessageId) {
-      const editContainer = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-input`);
-      console.log('Post-render check for edit input ID:', editingMessageId, 'Found:', !!editContainer);
-      if (!editContainer) {
-        console.log('DOM content for #chat-messages:', chatMessages.innerHTML);
-      }
-    }
   }
 
   function updatePinnedMessages() {
@@ -606,7 +604,7 @@
         attempts++;
         console.warn(`Edit input not found for message ID: ${id}, attempt ${attempts}/${maxAttempts}`);
         if (attempts < maxAttempts) {
-          setTimeout(tryFindEditInput, 200);
+          setTimeout(tryFindEditInput, 300); // Increased retry delay
         } else {
           console.error('Failed to find edit input for message ID:', id);
           editingMessageId = null;
@@ -614,7 +612,7 @@
         }
       }
     }
-    setTimeout(tryFindEditInput, 100);
+    setTimeout(tryFindEditInput, 200); // Increased initial delay
   }
 
   async function saveEditedMessage(id) {
