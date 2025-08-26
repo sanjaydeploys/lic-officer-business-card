@@ -370,6 +370,14 @@
       filteredMessages = window.messages.filter(m => m.category === selectedCategory);
     }
 
+    // Ensure the message being edited is included
+    if (editingMessageId) {
+      const editingMessage = window.messages.find(m => m.id === editingMessageId);
+      if (editingMessage && !filteredMessages.includes(editingMessage)) {
+        filteredMessages.push(editingMessage);
+      }
+    }
+
     if (filteredMessages.length === 0) {
       chatMessages.innerHTML = '<div class="no-messages">कोई संदेश नहीं मिला</div>';
       scrollToBottom();
@@ -394,6 +402,7 @@
       messageContent.style.fontSize = `${fontSize}px`;
       let formattedText = formatMarkdown(message.text);
       if (editingMessageId === message.id && message.sender === 'user') {
+        console.log('Rendering edit UI for message ID:', message.id);
         messageContent.innerHTML = `
           <div class="edit-message flex items-center gap-2">
             <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
@@ -559,8 +568,10 @@
     editingMessageId = id;
     editedText = text;
     renderMessages();
-    // Use setTimeout to ensure DOM is updated
-    setTimeout(() => {
+    // Retry finding the edit input with a longer delay
+    let attempts = 0;
+    const maxAttempts = 3;
+    function tryFindEditInput() {
       const editInput = document.querySelector(`[data-message-id="${id}"] .edit-message-input`);
       if (editInput) {
         console.log('Edit input found for message ID:', id);
@@ -574,11 +585,18 @@
           }
         });
       } else {
-        console.error('Edit input not found for message ID:', id);
-        editingMessageId = null;
-        renderMessages();
+        attempts++;
+        console.warn(`Edit input not found for message ID: ${id}, attempt ${attempts}/${maxAttempts}`);
+        if (attempts < maxAttempts) {
+          setTimeout(tryFindEditInput, 100);
+        } else {
+          console.error('Failed to find edit input for message ID:', id);
+          editingMessageId = null;
+          renderMessages();
+        }
       }
-    }, 0);
+    }
+    setTimeout(tryFindEditInput, 50);
   }
 
   async function saveEditedMessage(id) {
