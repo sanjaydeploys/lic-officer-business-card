@@ -1,35 +1,32 @@
-(function () {
-  // Set Hindi as the default and only language
-  let currentLang = 'hi';
-  localStorage.setItem('chat-lang', currentLang);
-
-  // Initialize messages with Hindi welcome text
+(function() {
+  let currentLang = localStorage.getItem('chat-lang') || 'hi';
   window.messages = JSON.parse(localStorage.getItem('lic-chat')) || [
     {
       sender: 'ai',
-      text: 'हाय! मैं LIC इंडिया का चैटबॉट हूँ। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "पॉलिसी की स्थिति कैसे जांचें?"',
+      text: currentLang === 'hi' 
+        ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
+        : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
       reactions: [],
-      isPinned: false,
-      associatedQuery: null
+      isPinned: false
     }
   ];
 
-  // Validate and reset messages if corrupted
   try {
     if (!Array.isArray(window.messages)) {
       console.warn('Invalid localStorage data, resetting messages');
       window.messages = [{
         sender: 'ai',
-        text: 'हाय! मैं LIC इंडिया का चैटबॉट हूँ। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "पॉलिसी की स्थिति कैसे जांचें?"',
+        text: currentLang === 'hi' 
+          ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
+          : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
         id: 'welcome',
         timestamp: new Date().toISOString(),
         category: 'welcome',
         reactions: [],
-        isPinned: false,
-        associatedQuery: null
+        isPinned: false
       }];
       localStorage.setItem('lic-chat', JSON.stringify(window.messages));
     }
@@ -37,19 +34,20 @@
     console.error('Error parsing localStorage:', e);
     window.messages = [{
       sender: 'ai',
-      text: 'हाय! मैं LIC इंडिया का चैटबॉट हूँ। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "पॉलिसी की स्थिति कैसे जांचें?"',
+      text: currentLang === 'hi' 
+        ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
+        : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
       id: 'welcome',
       timestamp: new Date().toISOString(),
       category: 'welcome',
       reactions: [],
-      isPinned: false,
-      associatedQuery: null
+      isPinned: false
     }];
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
   }
 
   let isLoading = false;
-  let isDarkMode = localStorage.getItem('chat-theme') === 'dark';
+  let isDarkMode = false;
   let isHistoryCollapsed = false;
   let fontSize = parseInt(localStorage.getItem('chat-font-size')) || 14;
   let editingMessageId = null;
@@ -60,50 +58,104 @@
   let showTimestamps = true;
   let searchQuery = '';
   let selectedCategory = '';
-  let isPinnedWindowOpen = false;
+  let pendingMessage = null;
+  let pendingMessageId = null;
   let interactionAnalytics = { questionsAsked: 0, speechUsed: 0, categories: {}, reactionsUsed: 0 };
-  let typingIndicatorElement = null;
   const suggestedPrompts = {
+    en: [
+      'What are LIC Neemuch’s services?',
+      'Tell me about life insurance plans.',
+      'How can I pay my LIC premium online?',
+      'What is the LIC digital platform?',
+      'How to file an insurance claim with LIC?',
+      'What are the benefits of LIC policies?',
+      'Explain LIC’s term insurance plans.',
+      'How does LIC’s customer support work?',
+      'What documents are needed for LIC policies?',
+      'Tell me about LIC’s investment plans.'
+    ],
     hi: [
-      'LIC जीवन आनंद योजना क्या है?',
-      'LIC पॉलिसी का प्रीमियम कैसे चुकाएं?',
-      'पॉलिसी की स्थिति कैसे जांचें?',
-      'LIC की सबसे अच्छी योजना कौन सी है?',
-      'LIC में क्लेम कैसे करें?',
-      'LIC की नई योजनाएं क्या हैं?',
-      'LIC में कितने प्रकार की योजनाएं हैं?',
-      'LIC पॉलिसी का रजिस्ट्रेशन कैसे करें?',
-      'LIC में ऑनलाइन पेमेंट कैसे करें?',
-      'LIC की टर्म इंश्योरेंस योजना क्या है?',
-      'LIC की पेंशन योजनाएं क्या हैं?',
-      'LIC में मेच्योरिटी अमाउंट कैसे चेक करें?',
-      'LIC एजेंट कैसे बनें?',
-      'LIC की यूलिप योजनाएं क्या हैं?',
-      'LIC में लोन कैसे लें?',
-      'LIC पॉलिसी को सरेंडर कैसे करें?',
-      'LIC में नॉमिनी कैसे बदलें?',
-      'LIC की चाइल्ड प्लान क्या हैं?',
-      'LIC की हेल्थ इंश्योरेंस योजनाएं क्या हैं?',
-      'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
+      'LIC नीमच की सेवाएँ क्या हैं?',
+      'जीवन बीमा योजनाओं के बारे में बताएं।',
+      'मैं LIC प्रीमियम ऑनलाइन कैसे भर सकता हूँ?',
+      'LIC का डिजिटल प्लेटफॉर्म क्या है?',
+      'LIC के साथ बीमा क्लेम कैसे फाइल करें?',
+      'LIC पॉलिसियों के लाभ क्या हैं?',
+      'LIC की टर्म इंश्योरेंस योजनाएँ समझाएँ।',
+      'LIC का कस्टमर सपोर्ट कैसे काम करता है?',
+      'LIC पॉलिसी के लिए कौन से दस्तावेज़ चाहिए?',
+      'LIC की निवेश योजनाओं के बारे में बताएं।'
     ]
   };
   let filteredSuggestions = suggestedPrompts[currentLang];
-  const emojiOptions = ['👍', '😄', '🌟', '🙏', '👏'];
+  const emojiOptions = ['👍', '😄', '💼', '📜', '👏'];
   const primaryApiKey = 'AIzaSyA6R5mEyZM7Vz61fisMnFaYedGptHv8B4I';
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
+  const imageContext = {
+    "lic-office": {
+      urls: [
+        {
+          url: "https://mys3resources.s3.ap-south-1.amazonaws.com/chatbot_images/lic-office-neemuch.jpg",
+          alt: "LIC Neemuch office exterior, showcasing its digital transformation"
+        }
+      ],
+      keywords: ["lic office", "neemuch office", "digital platform", "lic digital", "एलआईसी कार्यालय", "नीमच कार्यालय", "डिजिटल प्लेटफॉर्म"]
+    },
+    "lic-services": {
+      urls: [
+        {
+          url: "https://mys3resources.s3.ap-south-1.amazonaws.com/chatbot_images/lic-services-portal.jpg",
+          alt: "LIC Neemuch digital services portal interface"
+        }
+      ],
+      keywords: ["services", "digital services", "online portal", "lic portal", "सेवाएँ", "डिजिटल सेवाएँ", "ऑनलाइन पोर्टल"]
+    }
+  };
+  const licContext = `
+**LIC Neemuch Digital Platform Overview**:
+- **Background**: The Life Insurance Corporation (LIC) office in Neemuch, a 60-year-old government institution, lacked a digital presence, relying on pamphlets and WhatsApp forwards for outreach. Sanjay Patidar developed a serverless platform to digitize operations.
+- **Solution**: Built with React, Tailwind CSS, Vite, React Helmet (frontend); AWS Lambda, API Gateway, MongoDB Atlas (backend); AWS S3, CloudFront, SSL via ACM, Cloudflare DNS (infrastructure); and CloudWatch Logs (monitoring).
+- **Outcomes**: Achieved 100/100 Lighthouse score, ranked pages within days via SEO (React Helmet, pre-rendering), and increased inquiry submissions by 3x in two months.
+- **Services**: Online premium payments, policy inquiries, claim filing, and customer support through a responsive web interface.
+- **Key Features**: Mobile-first design, SEO-optimized pages, secure payment gateway integration, and real-time policy status updates.
+- **Contact**: Email: lic.neemuch.support@gmail.com | Phone: +91-7423-XXXXXX
+  `;
+  const hindiLicContext = `
+**LIC नीमच डिजिटल प्लेटफॉर्म अवलोकन**:
+- **पृष्ठभूमि**: नीमच का जीवन बीमा निगम (LIC) कार्यालय, एक 60 साल पुरानी सरकारी संस्था, के पास कोई डिजिटल उपस्थिति नहीं थी, जो प्रचार के लिए पैंफलेट और व्हाट्सएप फॉरवर्ड पर निर्भर थी। संजय पाटीदार ने संचालन को डिजिटाइज़ करने के लिए एक सर्वरलेस प्लेटफॉर्म विकसित किया।
+- **समाधान**: React, Tailwind CSS, Vite, React Helmet (फ्रंटएंड); AWS Lambda, API Gateway, MongoDB Atlas (बैकएंड); AWS S3, CloudFront, SSL via ACM, Cloudflare DNS (इंफ्रास्ट्रक्चर); और CloudWatch Logs (मॉनिटरिंग) के साथ बनाया गया।
+- **परिणाम**: 100/100 लाइटहाउस स्कोर प्राप्त किया, SEO (React Helmet, प्री-रेंडरिंग) के माध्यम से कुछ दिनों में पेज रैंकिंग, और दो महीनों में पूछताछ 3 गुना बढ़ी।
+- **सेवाएँ**: ऑनलाइन प्रीमियम भुगतान, पॉलिसी पूछताछ, क्लेम फाइलिंग, और एक रिस्पॉन्सिव वेब इंटरफेस के माध्यम से कस्टमर सपोर्ट।
+- **मुख्य विशेषताएँ**: मोबाइल-फर्स्ट डिज़ाइन, SEO-अनुकूलित पेज, सुरक्षित पेमेंट गेटवे एकीकरण, और रियल-टाइम पॉलिसी स्टेटस अपडेट।
+- **संपर्क**: ईमेल: lic.neemuch.support@gmail.com | फोन: +91-7423-XXXXXX
+  `;
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
 
-  // Load LIC context from single file
   function getContext() {
-    return window.licContext?.hindiContext || 'LIC India context not available';
+    return currentLang === 'hi' ? hindiLicContext : licContext;
   }
 
-  function getImageContext() {
-    return window.licContext?.imageContext || {};
+  function showTonePicker(message, messageId) {
+    const tonePromptText = currentLang === 'hi' ? 'आप कौन सा लहजा सुनना चाहेंगे?' : 'Which tone would you like to hear?';
+    const tonePromptId = Date.now();
+    pendingMessage = message;
+    pendingMessageId = messageId;
+    window.messages.push({
+      sender: 'ai',
+      text: tonePromptText,
+      id: tonePromptId,
+      timestamp: new Date().toISOString(),
+      category: 'tone_prompt',
+      reactions: [],
+      isPinned: false
+    });
+    renderMessages();
+    if (typeof window.speakMessage === 'function') {
+      window.speakMessage(tonePromptId, tonePromptText, currentLang);
+    }
   }
 
   async function processMessageWithTone(message, messageId, tone) {
-    if (isLoading) return;
     isLoading = true;
     interactionAnalytics.questionsAsked++;
     const { category, imageKey } = categorizeMessage(message);
@@ -111,8 +163,10 @@
 
     let aiResponse;
     let quickReplies = [];
-    const toneInstruction = 'Respond in a professional, concise, and simple tone suitable for all users, including those from rural areas in India. Use clear, easy-to-understand Hindi without technical jargon or complex terms. For lists or comparisons (e.g., policy details, benefits), structure responses as bullet points with each item on a new line for clarity. Ensure answers are culturally sensitive and family-friendly.';
-    const fullPrompt = `You are an AI assistant for LIC India. ${toneInstruction} Use the following context to answer questions about LIC policies, premiums, claims, or services, combining all available information. For general questions outside this context, provide accurate and relevant answers based on general knowledge. Include previous conversation history for context when relevant. Context: ${getContext()}\n\nConversation History: ${JSON.stringify(window.messages.slice(-5))} \n\nUser question: ${message}\n\nProvide a clear, well-educated response in Hindi with bullet points on new lines for any lists.`;
+    const toneInstruction = tone === 'funny'
+      ? 'Respond in a funny, engaging, and heartfelt tone suitable for an Indian audience. Use culturally relevant, non-technical humor (e.g., references to local culture or insurance scenarios). Avoid tech jargon (e.g., serverless, API) and movie references (e.g., Bollywood). Keep it family-friendly and relatable.'
+      : 'Respond in a professional, concise, and informative tone suitable for customers seeking insurance information. Focus on LIC Neemuch’s services, plans, or digital platform.';
+    const fullPrompt = `You are an AI assistant for LIC Neemuch's digital platform. ${toneInstruction} Use the following context to answer questions about LIC Neemuch's services, plans, or digital platform. For general insurance questions, provide accurate answers based on standard LIC offerings. Context: ${getContext()}\n\nUser question: ${message}\n\nProvide a clear response in ${currentLang === 'hi' ? 'Hindi' : 'English'}.`;
 
     async function tryApiRequest(apiKey) {
       try {
@@ -123,7 +177,7 @@
         });
         if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
         const data = await response.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        return data.candidates[0].content.parts[0].text;
       } catch (error) {
         console.error('API error with key:', apiKey, error.message);
         return null;
@@ -137,34 +191,30 @@
         aiResponse = await tryApiRequest(fallbackApiKey);
       }
       if (!aiResponse || aiResponse.includes('I don\'t have enough information')) {
-        const searchResults = await performWebSearch(message);
-        aiResponse = searchResults || 'क्षमा करें, मुझे विशिष्ट जानकारी नहीं मिली। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें!';
+        aiResponse = currentLang === 'hi' 
+          ? 'क्षमा करें, मुझे विशिष्ट जानकारी नहीं मिली। LIC नीमच की सेवाओं, योजनाओं, या डिजिटल प्लेटफॉर्म के बारे में पूछें!'
+          : 'Sorry, I couldn\'t find specific information. Try asking about LIC Neemuch’s services, plans, or digital platform!';
       }
-      aiResponse = formatResponse(aiResponse);
-      quickReplies = [
-        'इस पर और विस्तार से बताएं?',
-        'LIC की अन्य योजनाएं क्या हैं?',
-        'मुझे LIC कस्टमर केयर से कैसे संपर्क करना चाहिए?'
-      ];
+      quickReplies = currentLang === 'hi'
+        ? ['प्रीमियम भुगतान कैसे करें?', 'क्लेम प्रक्रिया क्या है?', 'LIC नीमच से संपर्क कैसे करें?']
+        : ['How to pay premiums?', 'What is the claim process?', 'How to contact LIC Neemuch?'];
     } catch (error) {
       console.error('Both API requests failed:', error.message);
-      const searchResults = await performWebSearch(message);
-      aiResponse = formatResponse(searchResults || 'कुछ गड़बड़ हो गई। कृपया फिर से प्रयास करें या LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें!');
-      quickReplies = [
-        'दूसरा प्रश्न पूछें',
-        'LIC की योजनाएं बताएं',
-        'LIC कस्टमर केयर का नंबर क्या है?'
-      ];
+      aiResponse = currentLang === 'hi' 
+        ? 'कुछ गड़बड़ हो गई। कृपया फिर से प्रयास करें या LIC नीमच की सेवाओं, योजनाओं, या डिजिटल प्लेटफॉर्म के बारे में पूछें!'
+        : 'Something went wrong. Please try again or ask about LIC Neemuch’s services, plans, or digital platform!';
+      quickReplies = currentLang === 'hi'
+        ? ['दूसरा प्रश्न पूछें', 'LIC की योजनाएँ बताएँ', 'डिजिटल प्लेटफॉर्म की जानकारी दें']
+        : ['Try another question', 'Tell me about LIC plans', 'Explain the digital platform'];
     }
 
     const responseId = Date.now();
-    const imageContext = getImageContext();
-    const imageData = imageKey && imageContext[imageKey] && isImageRelevant(message, imageContext[imageKey].keywords)
+    const imageData = imageKey && imageContext[imageKey] && tone === 'funny'
       ? imageContext[imageKey].urls[Math.floor(Math.random() * imageContext[imageKey].urls.length)]
       : null;
     window.messages.push({
       sender: 'ai',
-      text: '',
+      text: aiResponse,
       id: responseId,
       timestamp: new Date().toISOString(),
       category: category,
@@ -172,183 +222,35 @@
       isPinned: false,
       imageUrl: imageData?.url,
       imageAlt: imageData?.alt,
-      associatedQuery: message
+      quickReplies: quickReplies
     });
-    await typeMessage(aiResponse, responseId, quickReplies);
+    renderMessages();
+    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
+      window.speakMessage(responseId, aiResponse, currentLang);
+      interactionAnalytics.speechUsed++;
+    }
 
     if (isAutoReplyEnabled) {
-      setTimeout(() => {
+      setTimeout(function() {
         const followUpId = Date.now() + 1;
         window.messages.push({
           sender: 'ai',
-          text: '',
+          text: currentLang === 'hi' ? 'LIC नीमच की सेवाओं, योजनाओं, या डिजिटल प्लेटफॉर्म के बारे में और कोई प्रश्न हैं?' : 'Do you have any more questions about LIC Neemuch’s services, plans, or digital platform?',
           id: followUpId,
           timestamp: new Date().toISOString(),
           category: 'follow-up',
           reactions: [],
           isPinned: false,
-          associatedQuery: null
+          quickReplies: currentLang === 'hi'
+            ? ['प्रीमियम भुगतान कैसे करें?', 'क्लेम प्रक्रिया क्या है?', 'LIC नीमच से संपर्क कैसे करें?']
+            : ['How to pay premiums?', 'What is the claim process?', 'How to contact LIC Neemuch?']
         });
-        typeMessage(
-          'LIC की योजनाओं, प्रीमियम, या दावों के बारे में और कोई प्रश्न? अधिक जानकारी के लिए Jitendra Patidar (Development Officer @LIC India, Neemuch Branch) से संपर्क करें: 7987235207',
-          followUpId,
-          [
-            'LIC की सबसे अच्छी योजना कौन सी है?',
-            'LIC में क्लेम कैसे करें?',
-            'LIC की कस्टमर सर्विस कैसे संपर्क करें?'
-          ]
-        );
+        renderMessages();
       }, 2000);
     }
 
     isLoading = false;
     renderMessages();
-  }
-
-  function isImageRelevant(message, keywords) {
-    const lowerMessage = message.toLowerCase();
-    return keywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
-  }
-
-  function formatResponse(text) {
-    if (!text) return '<p>कोई जानकारी उपलब्ध नहीं।</p>';
-    const listRegex = /^([-*] .+)$/gm;
-    let formattedText = text;
-    if (listRegex.test(text)) {
-      formattedText = '<ul>';
-      const lines = text.split('\n').filter(line => line.trim());
-      lines.forEach(line => {
-        if (line.match(/^- .+$/) || line.match(/^\* .+$/)) {
-          formattedText += `<li>${line.replace(/[-*] /, '').trim()}</li>`;
-        } else {
-          formattedText += `</ul><p>${line.trim()}</p><ul>`;
-        }
-      });
-      formattedText = formattedText.replace(/<ul>\s*<\/ul>/g, '');
-      if (!formattedText.endsWith('</ul>')) formattedText += '</ul>';
-    } else {
-      formattedText = `<p>${text}</p>`;
-    }
-    return formattedText;
-  }
-
-  function formatMarkdown(text) {
-    if (!text) return '';
-    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    text = text.replace(/^- (.*?)$/gm, '<li>$1</li>');
-    text = text.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
-    return text;
-  }
-
-  function cleanTextForSpeech(text) {
-    if (!text || typeof text !== 'string') return '';
-    return text
-      .replace(/<[^>]+>/g, '')
-      .replace(/[*_~`#\-=+:;<>\[\]\{\}\(\)]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  function categorizeMessage(message) {
-    if (!message) return { category: 'general', imageKey: null };
-    const lowerMessage = message.toLowerCase();
-    if (lowerMessage.includes('जीवन आनंद') || lowerMessage.includes('jeevan anand')) {
-      return { category: 'policy', imageKey: 'jeevan-anand' };
-    } else if (lowerMessage.includes('न्यू जीवन') || lowerMessage.includes('new jeevan')) {
-      return { category: 'policy', imageKey: 'new-jeevan' };
-    } else if (lowerMessage.includes('धन वृद्धि') || lowerMessage.includes('dhan vriddhi')) {
-      return { category: 'policy', imageKey: 'dhan-vriddhi' };
-    } else if (lowerMessage.includes('अमृतबाल') || lowerMessage.includes('amritbal')) {
-      return { category: 'policy', imageKey: 'amritbal' };
-    } else if (lowerMessage.includes('योजना') || lowerMessage.includes('पॉलिसी') || lowerMessage.includes('plan')) {
-      return { category: 'policy', imageKey: null };
-    } else if (lowerMessage.includes('प्रीमियम') || lowerMessage.includes('premium') || lowerMessage.includes('भुगतान')) {
-      return { category: 'premium', imageKey: null };
-    } else if (lowerMessage.includes('दावा') || lowerMessage.includes('claim')) {
-      return { category: 'claim', imageKey: null };
-    } else if (lowerMessage.includes('संपर्क') || lowerMessage.includes('contact') || lowerMessage.includes('कस्टमर')) {
-      return { category: 'contact', imageKey: null };
-    } else {
-      return { category: 'general', imageKey: null };
-    }
-  }
-
-  async function performWebSearch(query) {
-    console.log('Performing web search for:', query);
-    return null; // Placeholder for actual search implementation
-  }
-
-  function scrollToBottom() {
-    const chatMessages = document.getElementById('chat-messages');
-    if (chatMessages) {
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-  }
-
-  async function typeMessage(text, messageId, quickReplies = []) {
-    const message = window.messages.find(m => m.id === messageId);
-    if (!message) return;
-    let index = 0;
-    const speed = 50;
-    typingIndicatorElement = document.createElement('div');
-    typingIndicatorElement.className = 'typing-indicator';
-    typingIndicatorElement.innerHTML = '<span></span><span></span><span></span>';
-
-    // Pre-calculate the final width of the message bubble to prevent shaking
-    const tempDiv = document.createElement('div');
-    tempDiv.style.visibility = 'hidden';
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.maxWidth = '80%';
-    tempDiv.style.width = 'auto';
-    tempDiv.style.padding = '0.5rem 0.75rem';
-    tempDiv.style.boxSizing = 'border-box';
-    tempDiv.className = 'ai-message';
-    tempDiv.innerHTML = formatMarkdown(text);
-    document.body.appendChild(tempDiv);
-    const fixedWidth = Math.min(tempDiv.offsetWidth + 20, window.innerWidth * 0.8) + 'px';
-    document.body.removeChild(tempDiv);
-
-    // Render typing indicator and set fixed width
-    renderMessages();
-    const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .ai-message`);
-    if (messageDiv) {
-      messageDiv.style.width = fixedWidth;
-      messageDiv.style.minWidth = '100px';
-    }
-
-    function type() {
-      if (index < text.length) {
-        message.text = text.slice(0, index + 1);
-        renderMessages();
-        index++;
-        // Start speech synthesis after first character to align with typing
-        if (index === 1 && isAutoSpeakEnabled && window.speakMessage) {
-          const cleanedText = cleanTextForSpeech(text);
-          if (cleanedText.trim()) {
-            try {
-              window.speakMessage(messageId, cleanedText, currentLang);
-            } catch (e) {
-              console.error('Speech synthesis error:', e);
-            }
-          }
-        }
-        setTimeout(type, speed);
-      } else {
-        message.text = text;
-        typingIndicatorElement = null;
-        if (quickReplies.length > 0) {
-          updateSuggestions(quickReplies);
-        }
-        if (messageDiv) {
-          messageDiv.style.width = '';
-          messageDiv.style.minWidth = '100px';
-        }
-        localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-        renderMessages();
-      }
-    }
-    type();
   }
 
   function renderMessages() {
@@ -358,30 +260,14 @@
       return;
     }
     chatMessages.innerHTML = '';
-    let filteredMessages = window.messages;
-
-    // Apply filtering only if not editing
-    if (!editingMessageId) {
-      if (isHistoryCollapsed) {
-        filteredMessages = [];
-      } else if (searchQuery) {
-        filteredMessages = window.messages.filter(m =>
-          m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (m.associatedQuery && m.associatedQuery.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-      } else if (selectedCategory) {
-        filteredMessages = window.messages.filter(m => m.category === selectedCategory);
-      }
-    } else {
-      // Include all messages when editing to ensure the editing message is rendered
-      filteredMessages = window.messages;
-      console.log('Rendering all messages due to editingMessageId:', editingMessageId);
-    }
+    const filteredMessages = searchQuery
+      ? window.messages.filter(m => m.text.toLowerCase().includes(searchQuery.toLowerCase()))
+      : selectedCategory
+      ? window.messages.filter(m => m.category === selectedCategory)
+      : window.messages;
 
     if (filteredMessages.length === 0) {
-      chatMessages.innerHTML = '<div class="no-messages">कोई संदेश नहीं मिला</div>';
-      scrollToBottom();
-      return;
+      chatMessages.innerHTML = '<div class="no-messages">No messages found</div>';
     }
 
     filteredMessages.sort((a, b) => {
@@ -390,7 +276,7 @@
       return new Date(a.timestamp) - new Date(b.timestamp);
     });
 
-    filteredMessages.forEach(message => {
+    filteredMessages.forEach(function(message) {
       if (!message.reactions) message.reactions = [];
       const messageDiv = document.createElement('div');
       messageDiv.className = `message-container flex mb-2 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -400,243 +286,301 @@
       const messageContent = document.createElement('div');
       messageContent.className = 'message-content';
       messageContent.style.fontSize = `${fontSize}px`;
-
-      // Explicitly handle edit UI for user messages being edited
-      if (editingMessageId === message.id && message.sender === 'user') {
-        const editHtml = `
-          <div class="edit-message flex items-center gap-2">
-            <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
-            <button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg" aria-label="Save edited message"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
-            <button class="cancel-edit-btn bg-[#FF4D4F] text-white p-2 rounded-lg" aria-label="Cancel edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-          </div>`;
-        console.log('Rendering edit UI for message ID:', message.id, 'with HTML:', editHtml);
-        messageContent.innerHTML = editHtml;
-
-        // Immediate DOM check to confirm edit UI was added
-        setTimeout(() => {
-          const editInputCheck = document.querySelector(`[data-message-id="${message.id}"] .edit-message-input`);
-          console.log('Immediate post-render check for edit input ID:', message.id, 'Found:', !!editInputCheck);
-          if (!editInputCheck) {
-            console.error('Edit UI not rendered for message ID:', message.id, 'Current #chat-messages HTML:', chatMessages.innerHTML);
-          }
-        }, 0);
+      let formattedText = formatMarkdown(message.text);
+      if (editingMessageId === message.id) {
+        messageContent.innerHTML =
+          '<div class="edit-message flex items-center gap-2">' +
+            '<input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="' + editedText.replace(/"/g, '&quot;') + '">' +
+            '<button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>' +
+            '<button class="cancel-btn bg-[#FF4D4F] text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>' +
+          '</div>';
       } else {
-        let formattedText = formatMarkdown(message.text);
-        if (message.isPinned && message.associatedQuery) {
-          messageContent.innerHTML = `<p><strong>प्रश्न:</strong> ${message.associatedQuery || 'N/A'}</p><p><strong>उत्तर:</strong> ${formattedText}</p>`;
-        } else {
-          messageContent.innerHTML = formattedText;
-        }
+        messageContent.innerHTML = formattedText;
         if (message.imageUrl) {
-          messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'LIC संबंधित छवि'}" class="message-image" loading="lazy">`;
+          messageContent.innerHTML += `<img src="${message.imageUrl}" alt="${message.imageAlt || 'Image related to LIC Neemuch'}" class="message-image" loading="lazy">`;
         }
         if (showTimestamps) {
           const timeSpan = document.createElement('span');
           timeSpan.className = 'message-timestamp';
-          timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+          timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           messageContent.appendChild(timeSpan);
         }
         if (message.reactions.length > 0) {
-          const reactionsDiv = document.createElement('div');
-          reactionsDiv.className = 'message-reactions';
-          message.reactions.forEach(reaction => {
-            const reactionTag = document.createElement('span');
-            reactionTag.className = 'reaction-tag';
-            reactionTag.textContent = reaction;
-            reactionsDiv.appendChild(reactionTag);
+          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + message.reactions.map(r => `<span class="reaction-tag bg-[#F5F5F5] dark:bg-[#2A3942] rounded-full px-2 py-1 text-sm">${r}</span>`).join('') + '</div>';
+        }
+        if (message.category === 'tone_prompt') {
+          const toneButtons = document.createElement('div');
+          toneButtons.className = 'tone-buttons flex gap-2 mt-2';
+          toneButtons.innerHTML = `
+            <button class="tone-btn funny-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm">${currentLang === 'hi' ? 'मज़ेदार' : 'Funny'}</button>
+            <button class="tone-btn professional-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm">${currentLang === 'hi' ? 'पेशेवर' : 'Professional'}</button>
+          `;
+          messageContent.appendChild(toneButtons);
+          toneButtons.querySelector('.funny-btn').addEventListener('click', () => {
+            window.messages = window.messages.filter(m => m.id !== message.id);
+            processMessageWithTone(pendingMessage, pendingMessageId, 'funny');
+            renderMessages();
           });
-          messageContent.appendChild(reactionsDiv);
+          toneButtons.querySelector('.professional-btn').addEventListener('click', () => {
+            window.messages = window.messages.filter(m => m.id !== message.id);
+            processMessageWithTone(pendingMessage, pendingMessageId, 'professional');
+            renderMessages();
+          });
+        }
+        if (message.quickReplies && message.quickReplies.length > 0) {
+          const replyButtons = document.createElement('div');
+          replyButtons.className = 'quick-replies flex gap-2 mt-2';
+          message.quickReplies.forEach(reply => {
+            const btn = document.createElement('button');
+            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm';
+            btn.textContent = reply;
+            btn.addEventListener('click', () => handleQuickReply(reply));
+            replyButtons.appendChild(btn);
+          });
+          messageContent.appendChild(replyButtons);
         }
       }
-
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'message-actions';
-      if (message.sender === 'user') {
-        actionsDiv.innerHTML = `
-          <button class="action-btn edit-btn" aria-label="Edit message">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-            </svg>
-          </button>
-        `;
+      if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function' && message.category !== 'tone_prompt') {
+        const speakBtn = document.createElement('button');
+        speakBtn.className = 'speak-btn';
+        speakBtn.setAttribute('aria-label', 'Play or pause message');
+        speakBtn.innerHTML = message.isSpeaking
+          ? `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
+          : `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z"></path></svg>`;
+        speakBtn.addEventListener('click', () => window.speakMessage(message.id, message.text, currentLang));
+        bubbleDiv.appendChild(speakBtn);
       }
-      actionsDiv.innerHTML += `
-        <button class="action-btn delete-btn" aria-label="Delete message">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 4v12m4-12v12"></path>
-          </svg>
-        </button>
-        <button class="action-btn pin-btn" aria-label="${message.isPinned ? 'Unpin' : 'Pin'} message">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-          </svg>
-        </button>
-        <button class="action-btn react-btn" aria-label="Add reaction">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-        </button>
-        <button class="action-btn speak-btn" aria-label="${message.isSpeaking ? 'Pause message' : 'Speak message'}">
-          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${message.isSpeaking ? 'M10 9v6m4-6v6' : 'M14.752 11.168l-6.504-3.753v7.506l6.504-3.753zM5 3v18l14-9L5 3z'}"></path>
-          </svg>
-        </button>
-      `;
-      messageContent.appendChild(actionsDiv);
+      const messageActions = document.createElement('div');
+      messageActions.className = 'message-actions flex justify-end gap-2 mt-2';
+      if (message.sender === 'user') {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+        editBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
+        editBtn.addEventListener('click', function() { startEditing(message.id, message.text); });
+        messageActions.appendChild(editBtn);
+      }
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      deleteBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4"></path></svg>';
+      deleteBtn.addEventListener('click', function() { deleteMessage(message.id); });
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      copyBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
+      copyBtn.addEventListener('click', function() { copyMessage(message.text); });
+      const pinBtn = document.createElement('button');
+      pinBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      pinBtn.innerHTML = message.isPinned ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
+      pinBtn.addEventListener('click', function() { togglePinMessage(message.id); });
+      const reactionBtn = document.createElement('button');
+      reactionBtn.className = 'action-btn bg-[rgba(0,0,0,0.1)] dark:bg-[#2A3942] p-2 rounded-full';
+      reactionBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+      reactionBtn.addEventListener('click', function() { showReactionPicker(message.id, bubbleDiv); });
+      messageActions.appendChild(deleteBtn);
+      messageActions.appendChild(copyBtn);
+      messageActions.appendChild(pinBtn);
+      messageActions.appendChild(reactionBtn);
       bubbleDiv.appendChild(messageContent);
+      bubbleDiv.appendChild(messageActions);
       messageDiv.appendChild(bubbleDiv);
       chatMessages.appendChild(messageDiv);
     });
 
-    if (typingIndicatorElement) {
-      const typingDiv = document.createElement('div');
-      typingDiv.className = 'message-container ai justify-start';
-      const typingBubble = document.createElement('div');
-      typingBubble.className = 'ai-message p-3 rounded-lg';
-      typingBubble.style.width = '100px';
-      typingBubble.appendChild(typingIndicatorElement);
-      typingDiv.appendChild(typingBubble);
-      chatMessages.appendChild(typingDiv);
+    if (isLoading) {
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'flex justify-start mb-2';
+      loadingDiv.innerHTML = '<div class="ai-message p-3 rounded-lg rounded-bl-none max-w-[80%] flex items-center"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
+      chatMessages.appendChild(loadingDiv);
     }
 
-    scrollToBottom();
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    updateTimestamps();
+    updateButtonStates();
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-    updatePinnedMessages();
-  }
 
-  function updatePinnedMessages() {
-    const pinnedWindow = document.getElementById('pinned-messages-window');
-    if (!pinnedWindow) {
-      console.error('Pinned messages window not found');
-      return;
-    }
-    pinnedWindow.innerHTML = '<h3>पिन किए गए संदेश</h3>';
-    const pinnedMessages = window.messages.filter(m => m.isPinned);
-    if (pinnedMessages.length === 0) {
-      pinnedWindow.innerHTML += '<p>कोई पिन किया हुआ संदेश नहीं</p>';
-    } else {
-      pinnedMessages.forEach(message => {
-        const pinnedDiv = document.createElement('div');
-        pinnedDiv.className = 'pinned-message';
-        pinnedDiv.innerHTML = `
-          <p><strong>प्रश्न:</strong> ${message.associatedQuery || 'N/A'}</p>
-          <p><strong>उत्तर:</strong> ${formatMarkdown(message.text)}</p>
-          <button class="unpin-btn">अनपिन करें</button>
-        `;
-        pinnedDiv.querySelector('.unpin-btn').addEventListener('click', () => {
-          message.isPinned = false;
-          updatePinnedMessages();
-          renderMessages();
-        });
-        pinnedWindow.appendChild(pinnedDiv);
-      });
-    }
-  }
-
-  function updateSuggestions(prompts = suggestedPrompts[currentLang]) {
-    const suggestionsContainer = document.getElementById('chat-suggestions');
-    if (!suggestionsContainer) {
-      console.error('Suggestions container not found');
-      return;
-    }
-    suggestionsContainer.innerHTML = '';
-    filteredSuggestions = prompts.filter(p => !searchQuery || p.toLowerCase().includes(searchQuery.toLowerCase()));
-    filteredSuggestions.forEach(prompt => {
-      const btn = document.createElement('button');
-      btn.className = 'suggestion-btn';
-      btn.textContent = prompt;
-      btn.addEventListener('click', () => {
-        const chatInput = document.getElementById('chat-input');
-        if (chatInput) {
-          chatInput.value = prompt;
-          sendMessage(prompt);
+    // Setup MutationObserver for edit input
+    if (editingMessageId) {
+      const observer = new MutationObserver((mutations, obs) => {
+        const editInput = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-input`);
+        if (editInput) {
+          console.log(`Edit input found for message ID: ${editingMessageId}`);
+          editInput.focus();
+          editInput.addEventListener('input', (e) => editedText = e.target.value);
+          editInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') saveEditedMessage(editingMessageId);
+          });
+          const saveBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-button`);
+          if (saveBtn) saveBtn.addEventListener('click', () => saveEditedMessage(editingMessageId));
+          const cancelBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .cancel-btn`);
+          if (cancelBtn) cancelBtn.addEventListener('click', cancelEdit);
+          obs.disconnect();
         }
       });
-      suggestionsContainer.appendChild(btn);
+      observer.observe(chatMessages, { childList: true, subtree: true });
+    }
+  }
+
+  function formatMarkdown(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-[#2A3942] p-1 rounded">$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-blue-500 underline">$1</a>')
+      .replace(/^- (.*)$/gm, '<li>$1</li>')
+      .replace(/(\n<li>.*<\/li>)+/g, '<ul class="list-disc pl-5">$&</ul>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function updateTimestamps() {
+    const timestamps = document.querySelectorAll('.message-timestamp');
+    timestamps.forEach(function(timestamp) {
+      const messageId = timestamp.closest('[data-message-id]').dataset.messageId;
+      const message = window.messages.find(function(message) { return message.id === messageId; });
+      if (message) timestamp.textContent = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     });
   }
 
-  function sendMessage(message) {
+  function updateButtonStates() {
+    const clearBtn = document.querySelector('.clear-btn');
+    if (clearBtn) clearBtn.disabled = window.messages.length === 1 && window.messages[0].id === 'welcome';
+    const sendBtn = document.querySelector('.send-btn');
+    if (sendBtn) sendBtn.disabled = isLoading;
+    const voiceBtn = document.querySelector('.voice-btn');
+    if (voiceBtn) voiceBtn.disabled = isLoading || !recognition;
+    document.querySelectorAll('.suggestion-btn').forEach(function(btn) { btn.disabled = isLoading; });
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    if (!input) {
+      console.error('Error: #chat-input element not found');
+      return;
+    }
+    const message = input.value.trim();
     if (!message || isLoading) return;
+
     const messageId = Date.now();
-    window.messages.push({
-      sender: 'user',
-      text: message,
-      id: messageId,
-      timestamp: new Date().toISOString(),
-      category: categorizeMessage(message).category,
-      reactions: [],
-      isPinned: false,
-      associatedQuery: null
-    });
+    window.messages.push({ sender: 'user', text: message, id: messageId, timestamp: new Date().toISOString(), category: categorizeMessage(message).category, reactions: [], isPinned: false });
+    input.value = '';
     renderMessages();
+    showTonePicker(message, messageId);
+  }
+
+  function categorizeMessage(message) {
+    const lowerMessage = message.toLowerCase();
+    for (const [imageKey, { keywords }] of Object.entries(imageContext)) {
+      if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+        return { category: 'services', imageKey };
+      }
+    }
+    if (lowerMessage.includes('service') || lowerMessage.includes('सेवा') || lowerMessage.includes('digital') || lowerMessage.includes('डिजिटल') || lowerMessage.includes('platform') || lowerMessage.includes('प्लेटफॉर्म')) {
+      return { category: 'services' };
+    } else if (lowerMessage.includes('plan') || lowerMessage.includes('policy') || lowerMessage.includes('insurance') || lowerMessage.includes('योजना') || lowerMessage.includes('पॉलिसी') || lowerMessage.includes('बीमा')) {
+      return { category: 'plans' };
+    } else if (lowerMessage.includes('premium') || lowerMessage.includes('payment') || lowerMessage.includes('प्रीमियम') || lowerMessage.includes('भुगतान')) {
+      return { category: 'premiums' };
+    } else if (lowerMessage.includes('claim') || lowerMessage.includes('क्लेम')) {
+      return { category: 'claims' };
+    } else if (lowerMessage.includes('contact') || lowerMessage.includes('support') || lowerMessage.includes('संपर्क') || lowerMessage.includes('सपोर्ट')) {
+      return { category: 'contact' };
+    } else {
+      return { category: 'general' };
+    }
+  }
+
+  function filterByCategory(category) {
+    selectedCategory = category;
+    searchQuery = '';
+    const searchBar = document.getElementById('search-bar');
+    if (searchBar) searchBar.value = '';
+    renderMessages();
+    handleInputChange('');
+  }
+
+  function handlePromptClick(prompt) {
     const chatInput = document.getElementById('chat-input');
-    if (chatInput) chatInput.value = '';
-    processMessageWithTone(message, messageId, 'professional');
+    if (chatInput) {
+      chatInput.value = prompt;
+      sendMessage();
+    }
+  }
+
+  function handleQuickReply(prompt) {
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+      chatInput.value = prompt;
+      sendMessage();
+    }
+  }
+
+  function handleInputChange(value) {
+    const suggestionsContainer = document.getElementById('chat-suggestions');
+    if (suggestionsContainer) {
+      filteredSuggestions = value.trim() ? suggestedPrompts[currentLang].filter(function(prompt) { return prompt.toLowerCase().includes(value.toLowerCase()); }) : suggestedPrompts[currentLang];
+      suggestionsContainer.innerHTML = filteredSuggestions.map(function(prompt) {
+        return '<button class="suggestion-btn">' + prompt + '</button>';
+      }).join('');
+      suggestionsContainer.querySelectorAll('.suggestion-btn').forEach((btn, index) => {
+        btn.addEventListener('click', () => handlePromptClick(filteredSuggestions[index]));
+      });
+    }
+    updateButtonStates();
+  }
+
+  function showReactionPicker(messageId, messageDiv) {
+    const existingPicker = messageDiv.querySelector('.reaction-picker');
+    if (existingPicker) {
+      existingPicker.remove();
+      return;
+    }
+    const picker = document.createElement('div');
+    picker.className = 'reaction-picker absolute bg-white dark:bg-[#2A3942] border rounded-lg p-2 flex gap-2 z-10';
+    emojiOptions.forEach(emoji => {
+      const btn = document.createElement('button');
+      btn.textContent = emoji;
+      btn.className = 'reaction-picker-item text-lg';
+      btn.addEventListener('click', function() { addReaction(messageId, emoji); picker.remove(); });
+      picker.appendChild(btn);
+    });
+    messageDiv.appendChild(picker);
+    const message = window.messages.find(m => m.id === messageId);
+    picker.style.top = '100%';
+    picker.style.left = message.sender === 'user' ? 'auto' : '0';
+    picker.style.right = message.sender === 'user' ? '0' : 'auto';
+  }
+
+  function addReaction(messageId, emoji) {
+    const message = window.messages.find(m => m.id === messageId);
+    if (message) {
+      message.reactions = message.reactions || [];
+      if (!message.reactions.includes(emoji)) {
+        message.reactions.push(emoji);
+        interactionAnalytics.reactionsUsed++;
+        renderMessages();
+        localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+      }
+    }
+  }
+
+  function togglePinMessage(messageId) {
+    const message = window.messages.find(m => m.id === messageId);
+    if (message) {
+      message.isPinned = !message.isPinned;
+      renderMessages();
+      localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+    }
   }
 
   function startEditing(id, text) {
-    console.log('Starting edit for message ID:', id, 'with text:', text);
+    console.log(`Starting edit for message ID: ${id} with text: ${text}`);
     editingMessageId = id;
     editedText = text;
     renderMessages();
-    let attempts = 0;
-    const maxAttempts = 3;
-    function tryFindEditInput() {
-      // Try primary selector
-      let editInput = document.querySelector(`[data-message-id="${id}"] .edit-message-input`);
-      // Fallback selector in case of DOM misalignment
-      if (!editInput) {
-        editInput = document.querySelector('.edit-message-input');
-      }
-      if (editInput) {
-        console.log('Edit input found for message ID:', id, 'Selector used:', editInput.parentElement.dataset.messageId ? 'Primary' : 'Fallback');
-        editInput.focus();
-        editInput.addEventListener('input', e => {
-          editedText = e.target.value;
-        });
-        editInput.addEventListener('keypress', e => {
-          if (e.key === 'Enter') {
-            saveEditedMessage(id);
-          }
-        });
-      } else {
-        attempts++;
-        console.warn(`Edit input not found for message ID: ${id}, attempt ${attempts}/${maxAttempts}`);
-        if (attempts < maxAttempts) {
-          setTimeout(tryFindEditInput, 300); // Increased retry delay
-        } else {
-          console.error('Failed to find edit input for message ID:', id);
-          editingMessageId = null;
-          renderMessages();
-        }
-      }
-    }
-    setTimeout(tryFindEditInput, 200); // Increased initial delay
   }
 
-  async function saveEditedMessage(id) {
-    if (!editedText.trim()) {
-      console.log('Edit canceled: empty text for message ID:', id);
-      editingMessageId = null;
-      renderMessages();
-      return;
-    }
-    const originalMessage = window.messages.find(m => m.id == id);
-    if (!originalMessage) {
-      console.error('Message not found for ID:', id);
-      editingMessageId = null;
-      renderMessages();
-      return;
-    }
-    if (originalMessage.text !== editedText) {
-      console.log('Saving edited message ID:', id, 'with new text:', editedText);
-      // Update original message
-      window.messages = window.messages.map(m =>
-        m.id == id ? { ...m, text: editedText, timestamp: new Date().toISOString(), category: categorizeMessage(editedText).category } : m
-      );
-      // Create new user message to trigger AI response
-      const newMessageId = Date.now() + 1;
+  function saveEditedMessage(id) {
+    if (editedText.trim()) {
+      const newMessageId = Date.now();
+      window.messages = window.messages.filter(m => m.id !== id); // Remove old message
       window.messages.push({
         sender: 'user',
         text: editedText,
@@ -644,362 +588,320 @@
         timestamp: new Date().toISOString(),
         category: categorizeMessage(editedText).category,
         reactions: [],
-        isPinned: false,
-        associatedQuery: null
+        isPinned: false
       });
-      localStorage.setItem('lic-chat', JSON.stringify(window.messages));
       editingMessageId = null;
+      editedText = '';
       renderMessages();
-      await processMessageWithTone(editedText, newMessageId, 'professional');
+      showTonePicker(editedText, newMessageId); // Treat as new query
     } else {
-      console.log('No changes made to message ID:', id);
       editingMessageId = null;
+      editedText = '';
       renderMessages();
     }
   }
 
   function cancelEdit() {
-    console.log('Canceling edit for message ID:', editingMessageId);
     editingMessageId = null;
     editedText = '';
     renderMessages();
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    // Check if required scripts are loaded
-    if (!window.speakMessage || !window.licContext) {
-      console.error('Required scripts (audiochatbot.js or licContext.js) failed to load');
-      const chatMessages = document.getElementById('chat-messages');
-      if (chatMessages) {
-        chatMessages.innerHTML = '<div class="no-messages">चैटबॉट लोड करने में त्रुटि। कृपया पेज रिफ्रेश करें या Jitendra Patidar से संपर्क करें: 7987235207</div>';
+  function deleteMessage(id) {
+    window.messages = window.messages.filter(function(message) { return message.id !== id; });
+    if (window.messages.length === 0) {
+      window.messages.push({
+        sender: 'ai',
+        text: currentLang === 'hi' 
+          ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
+          : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
+        id: 'welcome',
+        timestamp: new Date().toISOString(),
+        category: 'welcome',
+        reactions: [],
+        isPinned: false
+      });
+    }
+    renderMessages();
+    localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+  }
+
+  function copyMessage(text) {
+    navigator.clipboard.writeText(text).then(function() {
+      alert(currentLang === 'hi' ? 'संदेश कॉपी किया गया!' : 'Message copied!');
+    }).catch(function() {
+      alert(currentLang === 'hi' ? 'कॉपी करने में असफल!' : 'Failed to copy!');
+    });
+  }
+
+  function toggleTheme() {
+    isDarkMode = !isDarkMode;
+    document.getElementById('chatbot-container').classList.toggle('dark', isDarkMode);
+    const themeBtn = document.querySelector('.theme-btn');
+    if (themeBtn) {
+      themeBtn.innerHTML = isDarkMode
+        ? '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>'
+        : '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>';
+    }
+    renderMessages();
+  }
+
+  function toggleControls() {
+    const controls = document.getElementById('chat-controls');
+    if (controls) {
+      controls.classList.toggle('hidden');
+      const toggleBtn = document.querySelector('.controls-toggle');
+      if (toggleBtn) {
+        toggleBtn.innerHTML = controls.classList.contains('hidden')
+          ? '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>'
+          : '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
       }
+    }
+  }
+
+  function toggleSearchBar() {
+    const searchBar = document.getElementById('search-bar');
+    if (searchBar) {
+      searchBar.classList.toggle('hidden');
+      if (!searchBar.classList.contains('hidden')) {
+        searchBar.focus();
+      }
+    }
+  }
+
+  function searchMessages(query) {
+    searchQuery = query;
+    selectedCategory = '';
+    const categoryFilter = document.getElementById('category-filter');
+    if (categoryFilter) categoryFilter.value = '';
+    renderMessages();
+  }
+
+  function toggleHistory() {
+    isHistoryCollapsed = !isHistoryCollapsed;
+    const historyBtn = document.querySelector('.history-btn');
+    if (historyBtn) {
+      historyBtn.textContent = isHistoryCollapsed ? (currentLang === 'hi' ? 'इतिहास दिखाएं' : 'Show History') : (currentLang === 'hi' ? 'इतिहास छिपाएं' : 'Hide History');
+    }
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+      chatMessages.style.display = isHistoryCollapsed ? 'none' : 'block';
+    }
+    if (!isHistoryCollapsed) renderMessages();
+  }
+
+  function toggleAutoReply() {
+    isAutoReplyEnabled = !isAutoReplyEnabled;
+    const autoReplyBtn = document.querySelector('.auto-reply-btn');
+    if (autoReplyBtn) {
+      autoReplyBtn.textContent = isAutoReplyEnabled ? (currentLang === 'hi' ? 'ऑटो-रिप्लाई: चालू' : 'Auto-Reply: On') : (currentLang === 'hi' ? 'ऑटो-रिप्लाई: बंद' : 'Auto-Reply: Off');
+    }
+  }
+
+  function toggleAutoSpeak() {
+    isAutoSpeakEnabled = !isAutoSpeakEnabled;
+    const autoSpeakBtn = document.querySelector('.auto-speak-btn');
+    if (autoSpeakBtn) {
+      autoSpeakBtn.textContent = isAutoSpeakEnabled ? (currentLang === 'hi' ? 'ऑटो-स्पीक: चालू' : 'Auto-Speak: On') : (currentLang === 'hi' ? 'ऑटो-स्पीक: बंद' : 'Auto-Speak: Off');
+    }
+  }
+
+  function toggleTimestamps() {
+    showTimestamps = !showTimestamps;
+    const timestampBtn = document.querySelector('.timestamp-btn');
+    if (timestampBtn) {
+      timestampBtn.textContent = showTimestamps ? (currentLang === 'hi' ? 'टाइमस्टैम्प छिपाएं' : 'Hide Timestamps') : (currentLang === 'hi' ? 'टाइमस्टैम्प दिखाएं' : 'Show Timestamps');
+    }
+    renderMessages();
+  }
+
+  function adjustFontSize(change) {
+    fontSize = Math.max(10, Math.min(18, fontSize + change));
+    localStorage.setItem('chat-font-size', fontSize);
+    const elements = document.querySelectorAll('.chatbot-container .message-content, .chatbot-container .chat-input, .chatbot-container .search-bar, .chatbot-container .suggestion-btn, .chatbot-container .message-actions');
+    elements.forEach(function(element) {
+      element.style.setProperty('font-size', `${fontSize}px`, 'important');
+    });
+    console.log(`Font size adjusted to ${fontSize}px, affected ${elements.length} elements`);
+  }
+
+  function confirmClearChat() {
+    const confirmPopup = document.createElement('div');
+    confirmPopup.className = 'confirm-popup';
+    confirmPopup.innerHTML = `
+      <p>${currentLang === 'hi' ? 'क्या आप वाकई चैट इतिहास मिटाना चाहते हैं?' : 'Are you sure you want to clear the chat history?'}</p>
+      <button class="confirm-btn">${currentLang === 'hi' ? 'हाँ' : 'Yes'}</button>
+      <button class="cancel-btn">${currentLang === 'hi' ? 'नहीं' : 'No'}</button>
+    `;
+    document.getElementById('chatbot-container').appendChild(confirmPopup);
+    const confirmBtn = confirmPopup.querySelector('.confirm-btn');
+    const cancelBtn = confirmPopup.querySelector('.cancel-btn');
+    if (confirmBtn) confirmBtn.addEventListener('click', clearChat);
+    if (cancelBtn) cancelBtn.addEventListener('click', () => confirmPopup.remove());
+  }
+
+  function clearChat() {
+    window.messages = [{
+      sender: 'ai',
+      text: currentLang === 'hi' 
+        ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
+        : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"',
+      id: 'welcome',
+      timestamp: new Date().toISOString(),
+      category: 'welcome',
+      reactions: [],
+      isPinned: false
+    }];
+    localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+    renderMessages();
+    document.querySelectorAll('.confirm-popup').forEach(p => p.remove());
+  }
+
+  function toggleRecording() {
+    if (!recognition) {
+      alert(currentLang === 'hi' ? 'क्षमा करें, आपके ब्राउज़र में वॉइस इनपुट समर्थित नहीं है।' : 'Sorry, voice input is not supported in your browser.');
       return;
     }
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      recognition.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
+      recognition.start();
+      isRecording = true;
+      const voiceBtn = document.querySelector('.voice-btn');
+      if (voiceBtn) voiceBtn.classList.add('recording');
+    }
+  }
 
+  if (recognition) {
+    recognition.onresult = function(event) {
+      const transcript = event.results[0][0].transcript;
+      const chatInput = document.getElementById('chat-input');
+      if (chatInput) {
+        chatInput.value = transcript;
+        isRecording = false;
+        const voiceBtn = document.querySelector('.voice-btn');
+        if (voiceBtn) voiceBtn.classList.remove('recording');
+        const messageId = Date.now();
+        window.messages.push({ sender: 'user', text: transcript, id: messageId, timestamp: new Date().toISOString(), category: categorizeMessage(transcript).category, reactions: [], isPinned: false });
+        renderMessages();
+        showTonePicker(transcript, messageId);
+      }
+    };
+    recognition.onend = function() {
+      isRecording = false;
+      const voiceBtn = document.querySelector('.voice-btn');
+      if (voiceBtn) voiceBtn.classList.remove('recording');
+    };
+    recognition.onerror = function(event) {
+      console.error('Speech recognition error:', event.error);
+      isRecording = false;
+      const voiceBtn = document.querySelector('.voice-btn');
+      if (voiceBtn) voiceBtn.classList.remove('recording');
+      alert(currentLang === 'hi' ? 'वॉइस रिकग्निशन में त्रुटि: ' + event.error : 'Voice recognition error: ' + event.error);
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) {
+      console.error('Critical: #chat-messages element not found on DOM load');
+      return;
+    }
+    chatMessages.style.display = 'block';
     renderMessages();
-    updateSuggestions();
+    handleInputChange('');
+
+    const controlsToggle = document.querySelector('.controls-toggle');
+    if (controlsToggle) controlsToggle.addEventListener('click', toggleControls);
+
+    const searchToggle = document.querySelector('.search-toggle');
+    if (searchToggle) searchToggle.addEventListener('click', toggleSearchBar);
+
+    const themeBtn = document.querySelector('.theme-btn');
+    if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+    const langToggle = document.querySelector('.lang-toggle');
+    if (langToggle) {
+      langToggle.addEventListener('click', function() {
+        currentLang = currentLang === 'en' ? 'hi' : 'en';
+        localStorage.setItem('chat-lang', currentLang);
+        document.getElementById('chatbot-container').setAttribute('lang', currentLang);
+        langToggle.setAttribute('data-lang', currentLang === 'en' ? 'hi' : 'en');
+        const chatInput = document.getElementById('chat-input');
+        if (chatInput) {
+          chatInput.placeholder = currentLang === 'hi' ? chatInput.dataset.placeholderHi : 'Ask about LIC Neemuch’s services or plans...';
+        }
+        const searchBar = document.getElementById('search-bar');
+        if (searchBar) {
+          searchBar.placeholder = currentLang === 'hi' ? searchBar.dataset.placeholderHi : 'Search Messages';
+        }
+        const welcomeMsg = window.messages.find(m => m.id === 'welcome');
+        if (welcomeMsg) {
+          welcomeMsg.text = currentLang === 'hi' 
+            ? 'हाय! मैं LIC नीमच चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, या डिजिटल सेवाओं के बारे में पूछें, जैसे "LIC नीमच की सेवाएँ क्या हैं?" या "मुझे जीवन बीमा योजना के बारे में बताएं!"'
+            : 'Hi! I\'m the LIC Neemuch chatbot. Ask about insurance plans, premiums, or digital services, like "What are LIC Neemuch’s services?" or "Tell me about life insurance plans!"';
+          localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+        }
+        handleInputChange(document.getElementById('chat-input').value);
+        filteredSuggestions = suggestedPrompts[currentLang];
+        renderMessages();
+        if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech();
+      });
+    }
+
+    const searchBar = document.getElementById('search-bar');
+    if (searchBar) searchBar.addEventListener('input', (e) => searchMessages(e.target.value));
+
+    const historyBtn = document.querySelector('.history-btn');
+    if (historyBtn) historyBtn.addEventListener('click', toggleHistory);
+
+    const autoReplyBtn = document.querySelector('.auto-reply-btn');
+    if (autoReplyBtn) autoReplyBtn.addEventListener('click', toggleAutoReply);
+
+    const autoSpeakBtn = document.querySelector('.auto-speak-btn');
+    if (autoSpeakBtn) autoSpeakBtn.addEventListener('click', toggleAutoSpeak);
+
+    const timestampBtn = document.querySelector('.timestamp-btn');
+    if (timestampBtn) timestampBtn.addEventListener('click', toggleTimestamps);
+
+    const volumeControl = document.getElementById('volume-control');
+    if (volumeControl) volumeControl.addEventListener('input', function(e) {
+      if (typeof window.setSpeechVolume === 'function') window.setSpeechVolume(e.target.value);
+    });
+
+    const rateControl = document.getElementById('rate-control');
+    if (rateControl) rateControl.addEventListener('input', function(e) {
+      if (typeof window.setSpeechRate === 'function') window.setSpeechRate(e.target.value);
+    });
+
+    document.querySelectorAll('.font-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const change = btn.textContent.includes('Increase') ? 2 : -2;
+        adjustFontSize(change);
+      });
+    });
+
+    const categoryFilter = document.getElementById('category-filter');
+    if (categoryFilter) categoryFilter.addEventListener('change', (e) => filterByCategory(e.target.value));
+
+    const clearBtn = document.querySelector('.clear-btn');
+    if (clearBtn) clearBtn.addEventListener('click', confirmClearChat);
 
     const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.querySelector('.send-btn');
+    if (chatInput) {
+      chatInput.addEventListener('input', (e) => handleInputChange(e.target.value));
+      chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+      });
+    }
+
     const voiceBtn = document.querySelector('.voice-btn');
-    const controlsToggle = document.querySelector('.controls-toggle');
-    const pinnedToggle = document.querySelector('.pinned-toggle');
-    const themeBtn = document.querySelector('.theme-btn');
-    const searchToggle = document.querySelector('.search-toggle');
-    const historyBtn = document.querySelector('.history-btn');
-    const autoReplyBtn = document.querySelector('.auto-reply-btn');
-    const autoSpeakBtn = document.querySelector('.auto-speak-btn');
-    const timestampBtn = document.querySelector('.timestamp-btn');
-    const clearBtn = document.querySelector('.clear-btn');
-    const volumeControl = document.getElementById('volume-control');
-    const fontIncreaseBtn = document.querySelector('.font-increase-btn');
-    const fontDecreaseBtn = document.querySelector('.font-decrease-btn');
-    const categoryFilter = document.getElementById('category-filter');
-    const searchBar = document.getElementById('search-bar');
-    const chatbotContainer = document.getElementById('chatbot-container');
-    const chatMessages = document.getElementById('chat-messages');
+    if (voiceBtn) voiceBtn.addEventListener('click', toggleRecording);
 
-    if (!chatInput || !sendBtn || !chatbotContainer || !chatMessages) {
-      console.error('Critical UI elements missing');
-      const errorDiv = document.createElement('div');
-      errorDiv.className = 'no-messages';
-      errorDiv.textContent = 'चैटबॉट UI लोड करने में त्रुटि। कृपया पेज रिफ्रेश करें।';
-      if (chatbotContainer) chatbotContainer.appendChild(errorDiv);
-      return;
-    }
+    const sendBtn = document.querySelector('.send-btn');
+    if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
-    chatInput.addEventListener('keypress', e => {
-      if (e.key === 'Enter' && !isLoading) {
-        const message = chatInput.value.trim();
-        if (message) sendMessage(message);
-      }
-    });
-
-    sendBtn.addEventListener('click', () => {
-      const message = chatInput.value.trim();
-      if (message && !isLoading) sendMessage(message);
-    });
-
-    if (recognition && voiceBtn) {
-      recognition.lang = 'hi-IN';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      voiceBtn.addEventListener('click', () => {
-        if (isRecording) {
-          recognition.stop();
-          voiceBtn.classList.remove('recording');
-          isRecording = false;
-        } else {
-          recognition.start();
-          voiceBtn.classList.add('recording');
-          isRecording = true;
-          interactionAnalytics.speechUsed++;
-        }
-      });
-      recognition.onresult = event => {
-        const transcript = event.results[0][0].transcript;
-        chatInput.value = transcript;
-        if (!isLoading) sendMessage(transcript);
-        voiceBtn.classList.remove('recording');
-        isRecording = false;
-      };
-      recognition.onerror = event => {
-        console.error('Speech recognition error:', event.error);
-        voiceBtn.classList.remove('recording');
-        isRecording = false;
-        chatInput.value = 'क्षमा करें, आवाज पहचान में त्रुटि।';
-      };
-      recognition.onend = () => {
-        voiceBtn.classList.remove('recording');
-        isRecording = false;
-      };
-    } else if (voiceBtn) {
-      voiceBtn.disabled = true;
-    }
-
-    if (controlsToggle) {
-      const chatbotControls = document.querySelector('.chatbot-controls');
-      if (chatbotControls) {
-        controlsToggle.addEventListener('click', () => {
-          chatbotControls.classList.toggle('hidden');
-          chatbotControls.style.display = chatbotControls.classList.contains('hidden') ? 'none' : 'block';
-        });
-      } else {
-        console.error('Error: .chatbot-controls element not found');
-      }
-    }
-
-    if (pinnedToggle) {
-      pinnedToggle.addEventListener('click', () => {
-        isPinnedWindowOpen = !isPinnedWindowOpen;
-        const pinnedWindow = document.getElementById('pinned-messages-window');
-        if (pinnedWindow) {
-          pinnedToggle.classList.toggle('active', isPinnedWindowOpen);
-          pinnedWindow.classList.toggle('active', isPinnedWindowOpen);
-          updatePinnedMessages();
-        }
-      });
-    }
-
-    if (themeBtn) {
-      themeBtn.addEventListener('click', () => {
-        isDarkMode = !isDarkMode;
-        chatbotContainer.classList.toggle('dark', isDarkMode);
-        localStorage.setItem('chat-theme', isDarkMode ? 'dark' : 'light');
-      });
-    }
-
-    if (searchToggle) {
-      searchToggle.addEventListener('click', () => {
-        if (searchBar) {
-          searchBar.classList.toggle('hidden');
-          if (!searchBar.classList.contains('hidden')) {
-            searchBar.focus();
-          } else {
-            searchQuery = '';
-            searchBar.value = '';
-            renderMessages();
-            updateSuggestions();
-          }
-        }
-      });
-    }
-
-    if (historyBtn) {
-      historyBtn.addEventListener('click', () => {
-        isHistoryCollapsed = !isHistoryCollapsed;
-        historyBtn.textContent = isHistoryCollapsed ? 'इतिहास दिखाएं' : 'इतिहास छिपाएं';
-        renderMessages();
-      });
-    }
-
-    if (autoReplyBtn) {
-      autoReplyBtn.addEventListener('click', () => {
-        isAutoReplyEnabled = !isAutoReplyEnabled;
-        autoReplyBtn.textContent = `ऑटो-रिप्लाई: ${isAutoReplyEnabled ? 'चालू' : 'बंद'}`;
-      });
-    }
-
-    if (autoSpeakBtn) {
-      autoSpeakBtn.addEventListener('click', () => {
-        isAutoSpeakEnabled = !isAutoSpeakEnabled;
-        autoSpeakBtn.textContent = `ऑटो-स्पीक: ${isAutoSpeakEnabled ? 'चालू' : 'बंद'}`;
-      });
-    }
-
-    if (timestampBtn) {
-      timestampBtn.addEventListener('click', () => {
-        showTimestamps = !showTimestamps;
-        timestampBtn.textContent = showTimestamps ? 'टाइमस्टैम्प छिपाएं' : 'टाइमस्टैम्प दिखाएं';
-        renderMessages();
-      });
-    }
-
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        const popup = document.createElement('div');
-        popup.className = 'confirm-popup';
-        popup.innerHTML = `
-          <p>क्या आप वाकई चैट इतिहास साफ करना चाहते हैं?</p>
-          <button class="confirm-btn">हां</button>
-          <button class="cancel-btn">नहीं</button>
-        `;
-        document.body.appendChild(popup);
-        popup.querySelector('.confirm-btn').addEventListener('click', () => {
-          window.messages = [{
-            sender: 'ai',
-            text: 'हाय! मैं LIC इंडिया का चैटबॉट हूँ। LIC की योजनाओं, प्रीमियम, या दावों के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "पॉलिसी की स्थिति कैसे जांचें?"',
-            id: 'welcome',
-            timestamp: new Date().toISOString(),
-            category: 'welcome',
-            reactions: [],
-            isPinned: false,
-            associatedQuery: null
-          }];
-          localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-          renderMessages();
-          updateSuggestions();
-          popup.remove();
-        });
-        popup.querySelector('.cancel-btn').addEventListener('click', () => {
-          popup.remove();
-        });
-      });
-    }
-
-    if (volumeControl) {
-      volumeControl.addEventListener('input', () => {
-        if (window.setSpeechVolume) {
-          window.setSpeechVolume(volumeControl.value);
-          localStorage.setItem('chat-volume', volumeControl.value);
-        }
-      });
-    }
-
-    if (fontIncreaseBtn) {
-      fontIncreaseBtn.addEventListener('click', () => {
-        if (fontSize < 24) {
-          fontSize += 2;
-          localStorage.setItem('chat-font-size', fontSize);
-          renderMessages();
-        }
-      });
-    }
-
-    if (fontDecreaseBtn) {
-      fontDecreaseBtn.addEventListener('click', () => {
-        if (fontSize > 12) {
-          fontSize -= 2;
-          localStorage.setItem('chat-font-size', fontSize);
-          renderMessages();
-        }
-      });
-    }
-
-    if (categoryFilter) {
-      categoryFilter.addEventListener('change', () => {
-        selectedCategory = categoryFilter.value;
-        renderMessages();
-        updateSuggestions();
-      });
-    }
-
-    if (searchBar) {
-      searchBar.addEventListener('input', () => {
-        searchQuery = searchBar.value.trim();
-        renderMessages();
-        updateSuggestions();
-      });
-    }
-
-    if (chatMessages) {
-      chatMessages.addEventListener('click', async e => {
-        const target = e.target.closest('.action-btn, .edit-message-button, .cancel-edit-btn');
-        if (!target) return;
-        const messageDiv = target.closest('.message-container');
-        if (!messageDiv) {
-          console.error('Message container not found for target:', target);
-          return;
-        }
-        const messageId = messageDiv.dataset.messageId;
-        const message = window.messages.find(m => m.id == messageId);
-        if (!message) {
-          console.error('Message not found for ID:', messageId);
-          return;
-        }
-
-        if (target.classList.contains('edit-btn') && message.sender === 'user') {
-          startEditing(messageId, message.text);
-        } else if (target.classList.contains('delete-btn')) {
-          const popup = document.createElement('div');
-          popup.className = 'confirm-popup';
-          popup.innerHTML = `
-            <p>क्या आप इस संदेश को हटाना चाहते हैं?</p>
-            <button class="confirm-btn">हां</button>
-            <button class="cancel-btn">नहीं</button>
-          `;
-          document.body.appendChild(popup);
-          popup.querySelector('.confirm-btn').addEventListener('click', () => {
-            window.messages = window.messages.filter(m => m.id != messageId);
-            localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-            renderMessages();
-            updatePinnedMessages();
-            popup.remove();
-          });
-          popup.querySelector('.cancel-btn').addEventListener('click', () => {
-            popup.remove();
-          });
-        } else if (target.classList.contains('pin-btn')) {
-          message.isPinned = !message.isPinned;
-          updatePinnedMessages();
-          renderMessages();
-        } else if (target.classList.contains('react-btn')) {
-          const picker = document.createElement('div');
-          picker.className = 'reaction-picker';
-          emojiOptions.forEach(emoji => {
-            const item = document.createElement('span');
-            item.className = 'reaction-picker-item';
-            item.textContent = emoji;
-            item.addEventListener('click', () => {
-              if (!message.reactions.includes(emoji)) {
-                message.reactions.push(emoji);
-                interactionAnalytics.reactionsUsed++;
-                renderMessages();
-              }
-              picker.remove();
-            });
-            picker.appendChild(item);
-          });
-          target.parentElement.appendChild(picker);
-        } else if (target.classList.contains('speak-btn')) {
-          const cleanText = cleanTextForSpeech(message.text);
-          if (window.speakMessage && cleanText.trim()) {
-            try {
-              window.speakMessage(message.id, cleanText, currentLang);
-            } catch (e) {
-              console.error('Speech synthesis error:', e);
-            }
-          }
-        } else if (target.classList.contains('edit-message-button') && message.sender === 'user') {
-          await saveEditedMessage(messageId);
-        } else if (target.classList.contains('cancel-edit-btn')) {
-          cancelEdit();
-        }
-      });
-    }
-
-    const socialToggle = document.querySelector('.social-toggle-button');
-    const socialLinks = document.querySelector('.social-share-links');
-    if (socialToggle && socialLinks) {
-      socialToggle.addEventListener('click', () => {
-        socialLinks.classList.toggle('open');
-        socialToggle.classList.toggle('active');
-      });
-    }
-
-    if (volumeControl) {
-      volumeControl.value = localStorage.getItem('chat-volume') || 1;
-      if (window.setSpeechVolume) window.setSpeechVolume(volumeControl.value);
-    }
+    adjustFontSize(0);
   });
 })();
