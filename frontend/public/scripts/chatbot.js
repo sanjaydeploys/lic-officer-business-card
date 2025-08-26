@@ -134,7 +134,8 @@
   }
 
   function isImageRelevant(message, keywords) {
-    return keywords.some(keyword => message.toLowerCase().includes(keyword.toLowerCase()));
+    const lowerMessage = message.toLowerCase();
+    return keywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
   }
 
   function formatResponse(text) {
@@ -146,31 +147,47 @@
   async function typeMessage(text, messageId, quickReplies) {
     const message = window.messages.find(m => m.id === messageId);
     if (!message) return;
-    message.text = '';
     const messageDiv = document.querySelector(`[data-message-id="${messageId}"] .message-content`);
-    if (messageDiv) {
-      messageDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
-      renderMessages();
-    }
-    const charDelay = 30; // Milliseconds per character
-    const totalDuration = text.length * charDelay;
-    let spoken = false;
+    if (!messageDiv) return;
 
+    // Initialize fixed-height placeholder to prevent shaking
+    messageDiv.innerHTML = '<div class="typing-placeholder min-h-[20px]"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
+    const placeholder = messageDiv.querySelector('.typing-placeholder');
+    let currentText = '';
+    const charDelay = 50; // Slower typing for smoothness
+    let spokenText = '';
+
+    // Start speaking immediately if enabled
+    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function') {
+      window.speakMessage(messageId, text, currentLang);
+      interactionAnalytics.speechUsed++;
+    }
+
+    // Type character by character
     for (let i = 0; i < text.length; i++) {
-      message.text += text[i];
-      renderMessages();
+      currentText += text[i];
+      placeholder.innerHTML = `<div>${formatMarkdown(currentText)}</div>`;
+      message.text = currentText;
+      renderMessages(); // Minimal re-render to update only this message
       await new Promise(resolve => setTimeout(resolve, charDelay));
     }
 
-    // Sync audio with typing completion
-    if (isAutoSpeakEnabled && typeof window.speakMessage === 'function' && !spoken) {
-      window.speakMessage(messageId, text, currentLang, totalDuration / 1000); // Pass duration in seconds
-      interactionAnalytics.speechUsed++;
-      spoken = true;
-    }
-
+    // Finalize message
     message.text = formatResponse(text);
     message.quickReplies = quickReplies;
+    messageDiv.innerHTML = formatMarkdown(message.text);
+    if (message.quickReplies && message.quickReplies.length > 0) {
+      const replyButtons = document.createElement('div');
+      replyButtons.className = 'quick-replies flex flex-wrap gap-2 mt-2';
+      message.quickReplies.forEach(reply => {
+        const btn = document.createElement('button');
+        btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-2 rounded-lg text-sm min-w-[120px] text-center';
+        btn.textContent = reply;
+        btn.addEventListener('click', () => handleQuickReply(reply));
+        replyButtons.appendChild(btn);
+      });
+      messageDiv.appendChild(replyButtons);
+    }
     renderMessages();
   }
 
@@ -414,9 +431,15 @@
             if (e.key === 'Enter') saveEditedMessage(editingMessageId);
           });
           const saveBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-button`);
-          if (saveBtn) saveBtn.addEventListener('click', () => saveEditedMessage(editingMessageId));
+          if (saveBtn) {
+            console.log(`Save button found for message ID: ${editingMessageId}`);
+            saveBtn.addEventListener('click', () => saveEditedMessage(editingMessageId));
+          }
           const cancelBtn = document.querySelector(`[data-message-id="${editingMessageId}"] .cancel-btn`);
-          if (cancelBtn) cancelBtn.addEventListener('click', () => cancelEdit());
+          if (cancelBtn) {
+            console.log(`Cancel button found for message ID: ${editingMessageId}`);
+            cancelBtn.addEventListener('click', () => cancelEdit());
+          }
           obs.disconnect();
         }
       });
@@ -459,7 +482,10 @@
 
   function updatePinnedMessagesWindow() {
     const pinnedWindow = document.getElementById('pinned-messages-window');
-    if (!pinnedWindow) return;
+    if (!pinnedWindow) {
+      console.error('Error: #pinned-messages-window not found');
+      return;
+    }
     pinnedWindow.innerHTML = '';
     const pinnedMessages = window.messages.filter(m => m.isPinned);
     if (pinnedMessages.length > 0) {
@@ -483,6 +509,7 @@
       pinnedWindow.appendChild(noPinned);
     }
     pinnedWindow.classList.toggle('active', isPinnedWindowOpen && pinnedMessages.length > 0);
+    console.log(`Pinned window toggled: isPinnedWindowOpen=${isPinnedWindowOpen}, pinnedMessages=${pinnedMessages.length}`);
   }
 
   async function sendMessage() {
@@ -504,8 +531,10 @@
   function categorizeMessage(message) {
     const lowerMessage = message.toLowerCase();
     const imageContext = getImageContext();
+    console.log('Categorizing message:', lowerMessage, 'Image context:', imageContext);
     for (const [imageKey, { keywords }] of Object.entries(imageContext)) {
-      if (keywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()))) {
+      if (isImageRelevant(lowerMessage, keywords)) {
+        console.log(`Image matched: ${imageKey} for keywords ${keywords}`);
         return { category: 'plans', imageKey };
       }
     }
@@ -603,7 +632,9 @@
     if (message) {
       message.isPinned = !message.isPinned;
       renderMessages();
+      updatePinnedMessagesWindow();
       localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+      console.log(`Toggled pin for message ID: ${messageId}, isPinned: ${message.isPinned}`);
     }
   }
 
@@ -679,6 +710,7 @@
       themeBtn.innerHTML = isDarkMode
         ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>'
         : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>';
+      console.log(`Theme toggled: isDarkMode=${isDarkMode}`);
     }
     renderMessages();
   }
@@ -692,7 +724,10 @@
         toggleBtn.innerHTML = controls.classList.contains('hidden')
           ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>'
           : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        console.log(`Controls toggled: hidden=${controls.classList.contains('hidden')}`);
       }
+    } else {
+      console.error('Error: #chat-controls not found');
     }
   }
 
@@ -703,6 +738,9 @@
       if (!searchBar.classList.contains('hidden')) {
         searchBar.focus();
       }
+      console.log(`Search bar toggled: hidden=${searchBar.classList.contains('hidden')}`);
+    } else {
+      console.error('Error: #search-bar not found');
     }
   }
 
@@ -711,6 +749,7 @@
     const pinnedToggle = document.querySelector('.pinned-toggle');
     if (pinnedToggle) {
       pinnedToggle.classList.toggle('active', isPinnedWindowOpen);
+      console.log(`Pinned toggle clicked: isPinnedWindowOpen=${isPinnedWindowOpen}`);
     }
     updatePinnedMessagesWindow();
   }
@@ -728,6 +767,7 @@
     const historyBtn = document.querySelector('.history-btn');
     if (historyBtn) {
       historyBtn.textContent = isHistoryCollapsed ? (currentLang === 'hi' ? 'इतिहास दिखाएं' : 'Show History') : (currentLang === 'hi' ? 'इतिहास छिपाएं' : 'Hide History');
+      console.log(`History toggled: isHistoryCollapsed=${isHistoryCollapsed}`);
     }
     const chatMessages = document.getElementById('chat-messages');
     if (chatMessages) {
@@ -741,6 +781,7 @@
     const autoReplyBtn = document.querySelector('.auto-reply-btn');
     if (autoReplyBtn) {
       autoReplyBtn.textContent = isAutoReplyEnabled ? (currentLang === 'hi' ? 'ऑटो-रिप्लाई: चालू' : 'Auto-Reply: On') : (currentLang === 'hi' ? 'ऑटो-रिप्लाई: बंद' : 'Auto-Reply: Off');
+      console.log(`Auto-reply toggled: isAutoReplyEnabled=${isAutoReplyEnabled}`);
     }
   }
 
@@ -749,6 +790,7 @@
     const autoSpeakBtn = document.querySelector('.auto-speak-btn');
     if (autoSpeakBtn) {
       autoSpeakBtn.textContent = isAutoSpeakEnabled ? (currentLang === 'hi' ? 'ऑटो-स्पीक: चालू' : 'Auto-Speak: On') : (currentLang === 'hi' ? 'ऑटो-स्पीक: बंद' : 'Auto-Speak: Off');
+      console.log(`Auto-speak toggled: isAutoSpeakEnabled=${isAutoSpeakEnabled}`);
     }
   }
 
@@ -757,6 +799,7 @@
     const timestampBtn = document.querySelector('.timestamp-btn');
     if (timestampBtn) {
       timestampBtn.textContent = showTimestamps ? (currentLang === 'hi' ? 'टाइमस्टैम्प छिपाएं' : 'Hide Timestamps') : (currentLang === 'hi' ? 'टाइमस्टैम्प दिखाएं' : 'Show Timestamps');
+      console.log(`Timestamps toggled: showTimestamps=${showTimestamps}`);
     }
     renderMessages();
   }
@@ -768,7 +811,7 @@
     elements.forEach(function(element) {
       element.style.setProperty('font-size', `${fontSize}px`, 'important');
     });
-    console.log(`Font size adjusted to ${fontSize}px, affected ${elements.length} elements`);
+    console.log(`Font size adjusted to ${fontSize}px, change=${change}, affected ${elements.length} elements`);
   }
 
   function confirmClearChat() {
@@ -859,16 +902,44 @@
     handleInputChange('');
 
     const controlsToggle = document.querySelector('.controls-toggle');
-    if (controlsToggle) controlsToggle.addEventListener('click', toggleControls);
+    if (controlsToggle) {
+      controlsToggle.addEventListener('click', () => {
+        toggleControls();
+        console.log('Controls toggle clicked');
+      });
+    } else {
+      console.error('Error: .controls-toggle not found');
+    }
 
     const searchToggle = document.querySelector('.search-toggle');
-    if (searchToggle) searchToggle.addEventListener('click', toggleSearchBar);
+    if (searchToggle) {
+      searchToggle.addEventListener('click', () => {
+        toggleSearchBar();
+        console.log('Search toggle clicked');
+      });
+    } else {
+      console.error('Error: .search-toggle not found');
+    }
 
     const pinnedToggle = document.querySelector('.pinned-toggle');
-    if (pinnedToggle) pinnedToggle.addEventListener('click', togglePinnedWindow);
+    if (pinnedToggle) {
+      pinnedToggle.addEventListener('click', () => {
+        togglePinnedWindow();
+        console.log('Pinned toggle clicked');
+      });
+    } else {
+      console.error('Error: .pinned-toggle not found');
+    }
 
     const themeBtn = document.querySelector('.theme-btn');
-    if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        toggleTheme();
+        console.log('Theme toggle clicked');
+      });
+    } else {
+      console.error('Error: .theme-btn not found');
+    }
 
     const langToggle = document.querySelector('.lang-toggle');
     if (langToggle) {
@@ -919,14 +990,9 @@
       if (typeof window.setSpeechVolume === 'function') window.setSpeechVolume(e.target.value);
     });
 
-    const rateControl = document.getElementById('rate-control');
-    if (rateControl) rateControl.addEventListener('input', function(e) {
-      if (typeof window.setSpeechRate === 'function') window.setSpeechRate(e.target.value);
-    });
-
     document.querySelectorAll('.font-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const change = btn.textContent.includes('Increase') ? 2 : -2;
+        const change = btn.textContent.includes('+') ? 2 : -2;
         adjustFontSize(change);
       });
     });
