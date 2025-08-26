@@ -563,40 +563,58 @@
     editingMessageId = id;
     editedText = text;
     renderMessages();
-    const editInput = document.querySelector('.edit-message-input');
+    const editInput = document.querySelector(`[data-message-id="${id}"] .edit-message-input`);
     if (editInput) {
       editInput.focus();
-      editInput.addEventListener('input', e => editedText = e.target.value);
-      editInput.addEventListener('keypress', e => { if (e.key === 'Enter') saveEditedMessage(id); });
+      editInput.addEventListener('input', e => {
+        editedText = e.target.value;
+      }, { once: true });
+      editInput.addEventListener('keypress', e => {
+        if (e.key === 'Enter') {
+          saveEditedMessage(id);
+        }
+      }, { once: true });
+    } else {
+      console.error('Edit input not found for message ID:', id);
+      editingMessageId = null;
+      renderMessages();
     }
   }
 
   async function saveEditedMessage(id) {
-    if (editedText.trim()) {
-      const originalMessage = window.messages.find(m => m.id === id);
-      if (originalMessage && originalMessage.text !== editedText) {
-        window.messages = window.messages.map(m =>
-          m.id === id ? { ...m, text: editedText, timestamp: new Date().toISOString(), category: categorizeMessage(editedText).category } : m
-        );
-        localStorage.setItem('lic-chat', JSON.stringify(window.messages));
-        const newMessageId = Date.now() + 1;
-        window.messages.push({
-          sender: 'user',
-          text: editedText,
-          id: newMessageId,
-          timestamp: new Date().toISOString(),
-          category: categorizeMessage(editedText).category,
-          reactions: [],
-          isPinned: false,
-          associatedQuery: null
-        });
-        editingMessageId = null;
-        renderMessages();
-        await showTonePicker(editedText, newMessageId);
-      } else {
-        editingMessageId = null;
-        renderMessages();
-      }
+    if (!editedText.trim()) {
+      editingMessageId = null;
+      renderMessages();
+      return;
+    }
+    const originalMessage = window.messages.find(m => m.id == id);
+    if (!originalMessage) {
+      console.error('Message not found for ID:', id);
+      editingMessageId = null;
+      renderMessages();
+      return;
+    }
+    if (originalMessage.text !== editedText) {
+      // Update original message
+      window.messages = window.messages.map(m =>
+        m.id == id ? { ...m, text: editedText, timestamp: new Date().toISOString(), category: categorizeMessage(editedText).category } : m
+      );
+      // Create new user message to trigger AI response
+      const newMessageId = Date.now() + 1;
+      window.messages.push({
+        sender: 'user',
+        text: editedText,
+        id: newMessageId,
+        timestamp: new Date().toISOString(),
+        category: categorizeMessage(editedText).category,
+        reactions: [],
+        isPinned: false,
+        associatedQuery: null
+      });
+      localStorage.setItem('lic-chat', JSON.stringify(window.messages));
+      editingMessageId = null;
+      renderMessages();
+      await showTonePicker(editedText, newMessageId);
     } else {
       editingMessageId = null;
       renderMessages();
@@ -610,6 +628,16 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Check if required scripts are loaded
+    if (!window.speakMessage || !window.licContext) {
+      console.error('Required scripts (audiochatbot.js or licContext.js) failed to load');
+      const chatMessages = document.getElementById('chat-messages');
+      if (chatMessages) {
+        chatMessages.innerHTML = '<div class="no-messages">चैटबॉट लोड करने में त्रुटि। कृपया पेज रिफ्रेश करें या Jitendra Patidar से संपर्क करें: 7987235207</div>';
+      }
+      return;
+    }
+
     renderMessages();
     updateSuggestions();
 
@@ -635,6 +663,10 @@
 
     if (!chatInput || !sendBtn || !chatbotContainer || !chatMessages) {
       console.error('Critical UI elements missing');
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'no-messages';
+      errorDiv.textContent = 'चैटबॉट UI लोड करने में त्रुटि। कृपया पेज रिफ्रेश करें।';
+      if (chatbotContainer) chatbotContainer.appendChild(errorDiv);
       return;
     }
 
@@ -904,7 +936,7 @@
             }
           }
         } else if (target.classList.contains('edit-message-button') && message.sender === 'user') {
-          saveEditedMessage(messageId);
+          await saveEditedMessage(messageId);
         } else if (target.classList.contains('cancel-edit-btn')) {
           cancelEdit();
         }
