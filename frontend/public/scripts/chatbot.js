@@ -31,12 +31,12 @@
     window.messages = [{
       sender: 'ai',
       text: 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"',
-      id: 'welcome',
-      timestamp: new Date().toISOString(),
-      category: 'welcome',
-      reactions: [],
-      isPinned: false
-    }];
+        id: 'welcome',
+        timestamp: new Date().toISOString(),
+        category: 'welcome',
+        reactions: [],
+        isPinned: false
+      }];
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
   }
 
@@ -81,6 +81,18 @@
   const primaryApiKey = 'AIzaSyA6R5mEyZM7Vz61fisMnFaYedGptHv8B4I';
   const fallbackApiKey = 'AIzaSyCP0zYjRT5Gkdb2PQjSmVi6-TnO2a7ldAA';
   const recognition = window.SpeechRecognition || window.webkitSpeechRecognition ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
+
+  // Ensure emoji font support without SSR dependency
+  function ensureEmojiSupport() {
+    const style = document.createElement('style');
+    style.textContent = `
+      .font-emoji, .reaction-picker-item, .reaction-tag {
+        font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif !important;
+        font-weight: normal;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   function getContext() {
     return window.licContext?.hindiContext || 'LIC India context not available';
@@ -194,7 +206,7 @@
 
     async function tryApiRequest(apiKey) {
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5 accus:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
@@ -318,7 +330,7 @@
       const bubbleDiv = document.createElement('div');
       bubbleDiv.className = `relative max-w-[80%] p-3 rounded-lg ${message.sender === 'user' ? 'user-message bg-[var(--chat-user-light)] dark:bg-[var(--chat-user-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]' : 'ai-message bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]'} ${message.isPinned ? 'border-2 border-yellow-500' : ''}`;
       const messageContent = document.createElement('div');
-      messageContent.className = 'message-content';
+      messageContent.className = 'message-content pr-10'; // Added padding-right for play/pause button
       messageContent.style.fontSize = `${fontSize}px`;
       let formattedText = formatMarkdown(message.text);
       if (editingMessageId === message.id) {
@@ -340,8 +352,8 @@
           messageContent.appendChild(timeSpan);
         }
         if (message.reactions.length > 0) {
-          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' + 
-            message.reactions.map(r => `<span class="reaction-tag bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] rounded-full px-2 py-1 text-[1rem] font-emoji">${r}</span>`).join('') + 
+          messageContent.innerHTML += '<div class="message-reactions flex flex-wrap gap-1 mt-1">' +
+            message.reactions.map(r => `<span class="reaction-tag bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] rounded-full px-2 py-1 text-[1rem] font-emoji">${r}</span>`).join('') +
             '</div>';
         }
         if (message.quickReplies && message.quickReplies.length > 0) {
@@ -359,7 +371,7 @@
       }
       if (message.sender === 'ai' && message.text && typeof window.speakMessage === 'function') {
         const speakBtn = document.createElement('button');
-        speakBtn.className = 'speak-btn absolute top-2 right-2 p-[0.5rem] bg-[var(--chat-accent)] text-white rounded-full hover:bg-[var(--chat-accent-hover)] transition-colors shadow-md';
+        speakBtn.className = 'speak-btn absolute top-2 right-2 p-[0.5rem] bg-[var(--chat-accent)] text-white rounded-full hover:bg-[var(--chat-accent-hover)] transition-colors shadow-md z-10';
         speakBtn.setAttribute('aria-label', 'Play or pause message');
         speakBtn.innerHTML = message.isSpeaking
           ? `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path></svg>`
@@ -376,8 +388,8 @@
         const editBtn = document.createElement('button');
         editBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white transition-colors';
         editBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>';
-        editBtn.addEventListener('click', function() { 
-          startEditing(message.id, message.text); 
+        editBtn.addEventListener('click', function() {
+          startEditing(message.id, message.text);
           console.log(`Edit button clicked for message ID: ${message.id}`);
         });
         messageActions.appendChild(editBtn);
@@ -392,8 +404,8 @@
       copyBtn.addEventListener('click', function() { copyMessage(message.text); });
       const pinBtn = document.createElement('button');
       pinBtn.className = 'action-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-[var(--chat-secondary-text-light)] dark:text-[var(--chat-secondary-text-dark)] p-[0.5rem] rounded-lg hover:bg-[var(--chat-accent)] hover:text-white transition-colors';
-      pinBtn.innerHTML = message.isPinned 
-        ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>' 
+      pinBtn.innerHTML = message.isPinned
+        ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v7m-7 7h7m-7-7h14"></path></svg>'
         : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>';
       pinBtn.addEventListener('click', function() { togglePinMessage(message.id); });
       const reactionBtn = document.createElement('button');
@@ -532,14 +544,14 @@
     if (!message || isLoading) return;
 
     const messageId = Date.now();
-    window.messages.push({ 
-      sender: 'user', 
-      text: message, 
-      id: messageId, 
-      timestamp: new Date().toISOString(), 
-      category: categorizeMessage(message).category, 
-      reactions: [], 
-      isPinned: false 
+    window.messages.push({
+      sender: 'user',
+      text: message,
+      id: messageId,
+      timestamp: new Date().toISOString(),
+      category: categorizeMessage(message).category,
+      reactions: [],
+      isPinned: false
     });
     input.value = '';
     renderMessages();
@@ -618,15 +630,14 @@
       return;
     }
     const picker = document.createElement('div');
-    picker.className = 'reaction-picker absolute bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-2 flex gap-2 z-10 max-w-full font-emoji';
+    picker.className = 'reaction-picker absolute bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-2 flex gap-2 z-20 max-w-full';
     emojiOptions.forEach(emoji => {
       const btn = document.createElement('button');
       btn.textContent = emoji;
-      btn.className = 'reaction-picker-item text-[1.2rem] p-1 hover:bg-[var(--chat-accent)] rounded';
-      btn.style.fontFamily = '"Noto Color Emoji", sans-serif';
-      btn.addEventListener('click', function() { 
-        addReaction(messageId, emoji); 
-        picker.remove(); 
+      btn.className = 'reaction-picker-item text-[1.2rem] p-1 hover:bg-[var(--chat-accent)] rounded font-emoji';
+      btn.addEventListener('click', function() {
+        addReaction(messageId, emoji);
+        picker.remove();
         console.log(`Reaction ${emoji} selected for message ID: ${messageId}`);
       });
       picker.appendChild(btn);
@@ -679,7 +690,7 @@
     if (editedText.trim()) {
       const newMessageId = Date.now();
       window.messages = window.messages.filter(m => m.id !== id);
-      window.messages.push({
+      const newMessage = {
         sender: 'user',
         text: editedText,
         id: newMessageId,
@@ -687,12 +698,17 @@
         category: categorizeMessage(editedText).category,
         reactions: [],
         isPinned: false
-      });
+      };
+      window.messages.push(newMessage);
       editingMessageId = null;
+      const tempEditedText = editedText; // Store for logging
       editedText = '';
       renderMessages();
-      processMessage(editedText, newMessageId);
-      console.log(`Message saved for ID: ${newMessageId}, text: ${editedText}`);
+      // Ensure UI updates before processing
+      setTimeout(() => {
+        processMessage(tempEditedText, newMessageId);
+        console.log(`Message saved for ID: ${newMessageId}, text: ${tempEditedText}`);
+      }, 100);
     } else {
       cancelEdit();
       console.log('Edit cancelled due to empty text');
@@ -897,14 +913,14 @@
         const voiceBtn = document.querySelector('.voice-btn');
         if (voiceBtn) voiceBtn.classList.remove('recording');
         const messageId = Date.now();
-        window.messages.push({ 
-          sender: 'user', 
-          text: transcript, 
-          id: messageId, 
-          timestamp: new Date().toISOString(), 
-          category: categorizeMessage(transcript).category, 
-          reactions: [], 
-          isPinned: false 
+        window.messages.push({
+          sender: 'user',
+          text: transcript,
+          id: messageId,
+          timestamp: new Date().toISOString(),
+          category: categorizeMessage(transcript).category,
+          reactions: [],
+          isPinned: false
         });
         renderMessages();
         processMessage(transcript, messageId);
@@ -927,6 +943,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function() {
+    ensureEmojiSupport(); // Initialize emoji support
     const chatMessages = document.getElementById('chat-messages');
     if (!chatMessages) {
       console.error('Critical: #chat-messages element not found on DOM load');
