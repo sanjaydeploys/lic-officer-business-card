@@ -359,23 +359,23 @@
     }
     chatMessages.innerHTML = '';
     let filteredMessages = window.messages;
-    if (isHistoryCollapsed) {
-      filteredMessages = [];
-    } else if (searchQuery) {
-      filteredMessages = window.messages.filter(m =>
-        m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.associatedQuery && m.associatedQuery.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    } else if (selectedCategory) {
-      filteredMessages = window.messages.filter(m => m.category === selectedCategory);
-    }
 
-    // Ensure the message being edited is included
-    if (editingMessageId) {
-      const editingMessage = window.messages.find(m => m.id === editingMessageId);
-      if (editingMessage && !filteredMessages.includes(editingMessage)) {
-        filteredMessages.push(editingMessage);
+    // Apply filtering only if not editing
+    if (!editingMessageId) {
+      if (isHistoryCollapsed) {
+        filteredMessages = [];
+      } else if (searchQuery) {
+        filteredMessages = window.messages.filter(m =>
+          m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (m.associatedQuery && m.associatedQuery.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+      } else if (selectedCategory) {
+        filteredMessages = window.messages.filter(m => m.category === selectedCategory);
       }
+    } else {
+      // Include all messages when editing to ensure the editing message is rendered
+      filteredMessages = window.messages;
+      console.log('Rendering all messages due to editingMessageId:', editingMessageId);
     }
 
     if (filteredMessages.length === 0) {
@@ -402,7 +402,12 @@
       messageContent.style.fontSize = `${fontSize}px`;
       let formattedText = formatMarkdown(message.text);
       if (editingMessageId === message.id && message.sender === 'user') {
-        console.log('Rendering edit UI for message ID:', message.id);
+        console.log('Rendering edit UI for message ID:', message.id, 'with HTML:', `
+          <div class="edit-message flex items-center gap-2">
+            <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
+            <button class="edit-message-button bg-[#128C7E] text-white p-2 rounded-lg" aria-label="Save edited message"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
+            <button class="cancel-edit-btn bg-[#FF4D4F] text-white p-2 rounded-lg" aria-label="Cancel edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          </div>`);
         messageContent.innerHTML = `
           <div class="edit-message flex items-center gap-2">
             <input type="text" class="edit-message-input flex-1 p-2 border rounded-lg bg-[#F5F5F5] dark:bg-[#2A3942] text-black dark:text-[#E6E6FA]" value="${editedText.replace(/"/g, '&quot;')}" aria-label="Edit message">
@@ -490,6 +495,15 @@
     scrollToBottom();
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
     updatePinnedMessages();
+
+    // Debug: Log DOM state after rendering
+    if (editingMessageId) {
+      const editContainer = document.querySelector(`[data-message-id="${editingMessageId}"] .edit-message-input`);
+      console.log('Post-render check for edit input ID:', editingMessageId, 'Found:', !!editContainer);
+      if (!editContainer) {
+        console.log('DOM content for #chat-messages:', chatMessages.innerHTML);
+      }
+    }
   }
 
   function updatePinnedMessages() {
@@ -568,13 +582,17 @@
     editingMessageId = id;
     editedText = text;
     renderMessages();
-    // Retry finding the edit input with a longer delay
     let attempts = 0;
     const maxAttempts = 3;
     function tryFindEditInput() {
-      const editInput = document.querySelector(`[data-message-id="${id}"] .edit-message-input`);
+      // Try primary selector
+      let editInput = document.querySelector(`[data-message-id="${id}"] .edit-message-input`);
+      // Fallback selector in case of DOM misalignment
+      if (!editInput) {
+        editInput = document.querySelector('.edit-message-input');
+      }
       if (editInput) {
-        console.log('Edit input found for message ID:', id);
+        console.log('Edit input found for message ID:', id, 'Selector used:', editInput.parentElement.dataset.messageId ? 'Primary' : 'Fallback');
         editInput.focus();
         editInput.addEventListener('input', e => {
           editedText = e.target.value;
@@ -588,7 +606,7 @@
         attempts++;
         console.warn(`Edit input not found for message ID: ${id}, attempt ${attempts}/${maxAttempts}`);
         if (attempts < maxAttempts) {
-          setTimeout(tryFindEditInput, 100);
+          setTimeout(tryFindEditInput, 200);
         } else {
           console.error('Failed to find edit input for message ID:', id);
           editingMessageId = null;
@@ -596,7 +614,7 @@
         }
       }
     }
-    setTimeout(tryFindEditInput, 50);
+    setTimeout(tryFindEditInput, 100);
   }
 
   async function saveEditedMessage(id) {
