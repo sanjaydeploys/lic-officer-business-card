@@ -31,17 +31,17 @@
     window.messages = [{
       sender: 'ai',
       text: 'हाय! मैं LIC इंडिया चैटबॉट हूँ। बीमा योजनाओं, प्रीमियम, दावों, या सेवाओं के बारे में पूछें, जैसे "LIC जीवन आनंद योजना क्या है?" या "प्रीमियम कैसे चुकाएं?"',
-        id: 'welcome',
-        timestamp: new Date().toISOString(),
-        category: 'welcome',
-        reactions: [],
-        isPinned: false
-      }];
+      id: 'welcome',
+      timestamp: new Date().toISOString(),
+      category: 'welcome',
+      reactions: [],
+      isPinned: false
+    }];
     localStorage.setItem('lic-chat', JSON.stringify(window.messages));
   }
 
   let isLoading = false;
-  let isDarkMode = false;
+  let isDarkMode = true; // Default to dark mode
   let isHistoryCollapsed = false;
   let fontSize = parseInt(localStorage.getItem('chat-font-size')) || 14;
   let editingMessageId = null;
@@ -178,7 +178,7 @@
       replyButtons.className = 'quick-replies flex flex-wrap gap-2 mt-2';
       message.quickReplies.forEach(reply => {
         const btn = document.createElement('button');
-        btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm min-w-[120px] text-center';
+        btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm text-center';
         btn.textContent = reply;
         btn.addEventListener('click', () => handleQuickReply(reply));
         replyButtons.appendChild(btn);
@@ -206,7 +206,7 @@
 
     async function tryApiRequest(apiKey) {
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5 accus:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
@@ -330,7 +330,7 @@
       const bubbleDiv = document.createElement('div');
       bubbleDiv.className = `relative max-w-[80%] p-3 rounded-lg ${message.sender === 'user' ? 'user-message bg-[var(--chat-user-light)] dark:bg-[var(--chat-user-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]' : 'ai-message bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] text-[var(--chat-text-light)] dark:text-[var(--chat-text-dark)]'} ${message.isPinned ? 'border-2 border-yellow-500' : ''}`;
       const messageContent = document.createElement('div');
-      messageContent.className = 'message-content pr-10'; // Added padding-right for play/pause button
+      messageContent.className = 'message-content pr-10';
       messageContent.style.fontSize = `${fontSize}px`;
       let formattedText = formatMarkdown(message.text);
       if (editingMessageId === message.id) {
@@ -361,7 +361,7 @@
           replyButtons.className = 'quick-replies flex flex-wrap gap-2 mt-2';
           message.quickReplies.forEach(reply => {
             const btn = document.createElement('button');
-            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm min-w-[120px] text-center';
+            btn.className = 'quick-reply-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm text-center';
             btn.textContent = reply;
             btn.addEventListener('click', () => handleQuickReply(reply));
             replyButtons.appendChild(btn);
@@ -613,7 +613,7 @@
     if (suggestionsContainer) {
       filteredSuggestions = value.trim() ? suggestedPrompts.filter(function(prompt) { return prompt.toLowerCase().includes(value.toLowerCase()); }) : suggestedPrompts;
       suggestionsContainer.innerHTML = filteredSuggestions.map(function(prompt) {
-        return `<button class="suggestion-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm">${prompt}</button>`;
+        return `<button class="suggestion-btn bg-[var(--chat-border-light)] dark:bg-[var(--chat-border-dark)] text-white dark:text-[var(--chat-text-dark)] p-[0.3rem] rounded-lg text-sm text-center">${prompt}</button>`;
       }).join('');
       suggestionsContainer.querySelectorAll('.suggestion-btn').forEach((btn, index) => {
         btn.addEventListener('click', () => handlePromptClick(filteredSuggestions[index]));
@@ -630,7 +630,7 @@
       return;
     }
     const picker = document.createElement('div');
-    picker.className = 'reaction-picker absolute bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-2 flex gap-2 z-20 max-w-full';
+    picker.className = 'reaction-picker absolute bg-[var(--chat-ai-light)] dark:bg-[var(--chat-ai-dark)] border border-[var(--chat-border-light)] dark:border-[var(--chat-border-dark)] rounded-lg p-2 flex gap-2 z-20';
     emojiOptions.forEach(emoji => {
       const btn = document.createElement('button');
       btn.textContent = emoji;
@@ -701,10 +701,9 @@
       };
       window.messages.push(newMessage);
       editingMessageId = null;
-      const tempEditedText = editedText; // Store for logging
+      const tempEditedText = editedText;
       editedText = '';
       renderMessages();
-      // Ensure UI updates before processing
       setTimeout(() => {
         processMessage(tempEditedText, newMessageId);
         console.log(`Message saved for ID: ${newMessageId}, text: ${tempEditedText}`);
@@ -764,7 +763,7 @@
   function toggleControls() {
     const controls = document.getElementById('chat-controls');
     if (controls) {
-      controls.classList.remove('hidden'); // Always keep controls visible
+      controls.classList.remove('hidden');
       console.log('Controls are always visible by default');
     } else {
       console.error('Error: #chat-controls not found');
@@ -943,7 +942,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function() {
-    ensureEmojiSupport(); // Initialize emoji support
+    ensureEmojiSupport();
     const chatMessages = document.getElementById('chat-messages');
     if (!chatMessages) {
       console.error('Critical: #chat-messages element not found on DOM load');
@@ -1036,7 +1035,7 @@
     if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
     adjustFontSize(0);
-    toggleControls(); // Ensure controls are visible by default
+    toggleControls();
     console.log('DOM loaded, chatbot initialized');
   });
 })();
